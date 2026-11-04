@@ -25,7 +25,7 @@ tiktok_client = TikTokLiveClient(unique_id="@idollatao")
 async def on_tiktok_gift(event):
     global live_game_state
     
-    # Nếu game đã bị OFF LIVE bởi con hổ thì tạm ngưng nhận sự kiện trừ khi reset
+    # Nếu game đã kết thúc thì tạm ngưng nhận sự kiện
     if live_game_state["game_status"] == "OFF_LIVE":
         return
 
@@ -37,24 +37,24 @@ async def on_tiktok_gift(event):
         
         gift_lower = str(gift_name).lower()
 
-        # KIỂM TRA NẾU LÀ QUÀ CON HỔ -> KÍCH HOẠT OFF LIVE
+        # NẾU LÀ QUÀ CON HỔ -> NGƯỜI TỐT XUẤT HIỆN -> OFF LIVE CHIẾN THẮNG!
         if "tiger" in gift_lower or "hổ" in gift_lower:
             live_game_state["game_status"] = "OFF_LIVE"
-            live_game_state["is_under_attack"] = True
+            live_game_state["is_under_attack"] = False
             live_game_state["last_attacker"] = user_name
             live_game_state["last_gift"] = f"{gift_name} (x{repeat_count})"
-            live_game_state["last_action_msg"] = f"🐅 {user_name} thả QUÀ CON HỔ! Lệnh OFF LIVE đã được kích hoạt! Trò chơi kết thúc!"
+            live_game_state["last_action_msg"] = f"🐅 {user_name} (Người tốt) thả QUÀ CON HỔ! OFF LIVE chiến thắng rực rỡ!"
             live_game_state["animation_trigger"] += 1
             return
 
-        # TẤT CẢ CÁC QUÀ KHÁC ĐỀU LÀ BÊN XẤU (TẤN CÔNG VÀ TRỪ WIN)
+        # CÁC QUÀ KHÁC (NGƯỜI XUỐNG PHÁ) -> TRỪ ĐIỂM WIN
         penalty = 5 * repeat_count  # Mỗi món quà trừ 5 điểm Win x số lượng
         live_game_state["wins"] = max(0, live_game_state["wins"] - penalty)
         live_game_state["is_under_attack"] = True
         live_game_state["countdown"] = 10
         live_game_state["last_attacker"] = user_name
         live_game_state["last_gift"] = f"{gift_name} (x{repeat_count})"
-        live_game_state["last_action_msg"] = f"🚨 {user_name} tấn công bằng {gift_name} (x{repeat_count})! Trừ {penalty} Win!"
+        live_game_state["last_action_msg"] = f"🚨 {user_name} quậy phá bằng {gift_name} (x{repeat_count})! Trừ {penalty} Win!"
         live_game_state["animation_trigger"] += 1  # Kích hoạt hiệu ứng bay
         
         # Chạy luồng đếm ngược 10 giây phòng thủ
@@ -70,7 +70,7 @@ def run_countdown():
     
     if live_game_state["countdown"] <= 0 and live_game_state["game_status"] == "RUNNING":
         live_game_state["is_under_attack"] = False
-        live_game_state["last_action_msg"] = "🛡️ Đã chống đỡ thành công đợt tấn công! Vùng an toàn!"
+        live_game_state["last_action_msg"] = "🛡️ Đã chống đỡ thành công đợt phá phách! Tiếp tục chiến đấu!"
 
 def start_tiktok_listener():
     while True:
@@ -81,7 +81,7 @@ def start_tiktok_listener():
             print(f"Mất kết nối TikTok Live: {e}. Thử lại sau 5 giây...")
             time.sleep(5)
 
-# Giao diện Web Game siêu xịn xò
+# Giao diện Web Game
 @app.route('/')
 def index():
     html_template = """
@@ -94,13 +94,13 @@ def index():
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
         <style>
             body { background-color: #0b0c10; color: white; font-family: 'Poppins', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
-            .game-container { width: 100%; max-width: 440px; background: #151823; border: 2px solid #ff4757; border-radius: 24px; padding: 25px; box-sizing: border-box; text-align: center; box-shadow: 0 20px 40px rgba(255,71,87,0.3); z-index: 10; position: relative; }
-            .avatar-box { width: 85px; height: 85px; border-radius: 50%; border: 3px solid #ffa502; object-fit: cover; margin: 0 auto 10px auto; display: block; box-shadow: 0 0 15px rgba(255,165,2,0.5); }
-            .title { color: #ff4757; font-size: 18px; font-weight: 700; margin: 0 0 5px 0; text-transform: uppercase; }
+            .game-container { width: 100%; max-width: 440px; background: #151823; border: 2px solid #2ed573; border-radius: 24px; padding: 25px; box-sizing: border-box; text-align: center; box-shadow: 0 20px 40px rgba(46,213,115,0.2); z-index: 10; position: relative; }
+            .avatar-box { width: 85px; height: 85px; border-radius: 50%; border: 3px solid #2ed573; object-fit: cover; margin: 0 auto 10px auto; display: block; box-shadow: 0 0 15px rgba(46,213,115,0.4); }
+            .title { color: #2ed573; font-size: 18px; font-weight: 700; margin: 0 0 5px 0; text-transform: uppercase; }
             .subtitle { color: #8f9bb3; font-size: 11px; margin: 0 0 15px 0; }
             
             .win-label { font-size: 11px; color: #8f9bb3; font-weight: 600; letter-spacing: 1px; }
-            .win-number { font-size: 56px; font-weight: bold; color: #2ed573; margin: 5px 0; text-shadow: 0 0 20px rgba(46,213,115,0.4); }
+            .win-number { font-size: 56px; font-weight: bold; color: #ffa502; margin: 5px 0; text-shadow: 0 0 20px rgba(255,165,2,0.4); }
             
             .alert-box { display: none; background: rgba(255,71,87,0.15); border: 1px solid #ff4757; padding: 12px; border-radius: 14px; margin-top: 15px; }
             .alert-title { color: #ff4757; font-weight: bold; font-size: 16px; animation: pulse 0.8s infinite; }
@@ -109,7 +109,7 @@ def index():
             
             .msg-box { background: #12131c; border: 1px solid #232738; padding: 12px 15px; border-radius: 12px; margin-top: 15px; font-size: 13px; min-height: 55px; word-break: break-word; color: #d1d5db; line-height: 1.4; display: flex; align-items: center; justify-content: center; }
 
-            /* Overlay Off Live khi dính Hổ */
+            /* Overlay Off Live khi gặp Quà Hổ từ người tốt */
             #offLiveOverlay {
                 display: none;
                 position: absolute;
@@ -145,27 +145,27 @@ def index():
         </style>
     </head>
     <body>
-        <div class="flying-item" id="flyingItem">⛵</div>
+        <div class="flying-item" id="flyingItem">🐅</div>
 
         <div class="game-container">
-            <!-- Màn hình OFF LIVE khi gặp Hổ -->
+            <!-- Màn hình OFF LIVE chiến thắng khi gặp Hổ -->
             <div id="offLiveOverlay">
-                <div style="font-size: 60px; margin-bottom: 10px;">🐅</div>
-                <h2 style="color: #ff4757; margin: 0 0 10px 0; font-size: 22px;">OFF LIVE / KẾT THÚC</h2>
-                <p style="color: #d1d5db; font-size: 13px; padding: 0 20px; text-align: center;" id="offLiveMsg">Quà Hổ đã xuất hiện, phiên chơi đã dừng lại!</p>
-                <button onclick="location.reload()" style="margin-top: 15px; background: #2ed573; border: none; color: white; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer;">Chơi Lại</button>
+                <div style="font-size: 60px; margin-bottom: 10px;">🐅🎉</div>
+                <h2 style="color: #2ed573; margin: 0 0 10px 0; font-size: 22px;">NGƯỜI TỐT CỨU THẾ! OFF LIVE!</h2>
+                <p style="color: #d1d5db; font-size: 13px; padding: 0 20px; text-align: center;" id="offLiveMsg">Nhận được Quà Hổ, kết thúc phiên chơi an toàn và chiến thắng!</p>
+                <button onclick="location.reload()" style="margin-top: 15px; background: #2ed573; border: none; color: white; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer;">Chơi Tiếp</button>
             </div>
 
             <img src="https://i.ibb.co/Z1Yck7SH/7475196962448704520-avatar-png.png" alt="Avatar" class="avatar-box">
             <div class="title">⚔️ SINH TỒN TIKTOK LIVE</div>
-            <div class="subtitle">Mọi món quà = Tấn công trừ Win! Trúng Hổ = Off Live!</div>
+            <div class="subtitle">Khách quậy = Trừ Win! Người tốt tặng Hổ = Off Live chiến thắng!</div>
             
             <div class="win-label">SỐ LƯỢT WIN HIỆN TẠI</div>
             <div class="win-number" id="winsDisplay">500</div>
 
             <div class="alert-box" id="attackSection">
-                <div class="alert-title" id="attackTitle">🚨 ĐANG BỊ TẤN CÔNG!</div>
-                <div style="font-size: 11px; color: #ff6b81; margin-top: 3px;">Thời gian phản công:</div>
+                <div class="alert-title" id="attackTitle">🚨 KHÁCH ĐANG PHÁ PHÁCH!</div>
+                <div style="font-size: 11px; color: #ff6b81; margin-top: 3px;">Thời gian chống đỡ:</div>
                 <div class="timer-num" id="countdownDisplay">10</div>
             </div>
 
@@ -177,7 +177,6 @@ def index():
         <script>
             let lastTrigger = 0;
 
-            // Đồng bộ trạng thái game từ server mỗi 1 giây
             setInterval(() => {
                 fetch('/api/status')
                 .then(res => res.json())
@@ -185,13 +184,11 @@ def index():
                     document.getElementById('winsDisplay').innerText = data.wins;
                     document.getElementById('msgDisplay').innerText = data.last_action_msg;
                     
-                    // Kiểm tra trạng thái OFF LIVE
                     if (data.game_status === "OFF_LIVE") {
                         document.getElementById('offLiveOverlay').style.display = 'flex';
                         document.getElementById('offLiveMsg').innerText = data.last_action_msg;
                     }
 
-                    // Kích hoạt hiệu ứng bay khi có quà mới
                     if (data.animation_trigger !== lastTrigger) {
                         lastTrigger = data.animation_trigger;
                         triggerFlightAnimation();
@@ -211,7 +208,7 @@ def index():
             function triggerFlightAnimation() {
                 const item = document.getElementById('flyingItem');
                 item.classList.remove('animate-item');
-                void item.offsetWidth; // Reset hiệu ứng
+                void item.offsetWidth;
                 item.classList.add('animate-item');
             }
         </script>
@@ -225,7 +222,7 @@ def api_status():
     return jsonify(live_game_state)
 
 if __name__ == '__main__':
-    # Khởi chạy luồng bắt sự kiện TikTok Live ngầm
     threading.Thread(target=start_tiktok_listener, daemon=True).start()
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+    
