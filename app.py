@@ -3,7 +3,6 @@ import threading
 import time
 from flask import Flask, render_template_string, jsonify
 from TikTokLive import TikTokLiveClient
-from TikTokLive.types.events import GiftEvent
 
 app = Flask(__name__)
 
@@ -22,27 +21,18 @@ live_game_state = {
 # Kết nối TikTok Live kênh @idollatao
 tiktok_client = TikTokLiveClient(unique_id="@idollatao")
 
-@tiktok_client.on(GiftEvent)
-async def on_tiktok_gift(event: GiftEvent):
+@tiktok_client.on("gift")
+async def on_tiktok_gift(event):
     global live_game_state
     
     if live_game_state["game_status"] == "OFF_LIVE":
         return
 
     try:
-        user_name = "Người xem bí ẩn"
-        if hasattr(event, 'user') and event.user:
-            user_name = getattr(event.user, 'nickname', None) or getattr(event.user, 'unique_id', 'Người xem bí ẩn')
-
-        gift_name = "Món quà"
-        repeat_count = 1
+        user_name = getattr(event.user, "nickname", "Người xem") if event.user else "Người xem"
+        gift_name = event.gift.name if hasattr(event, 'gift') and event.gift else "Món quà"
+        repeat_count = int(getattr(event, "repeat_count", 1))
         
-        if hasattr(event, 'gift') and event.gift:
-            gift_name = getattr(event.gift, 'name', 'Món quà')
-        
-        if hasattr(event, 'repeat_count') and event.repeat_count:
-            repeat_count = int(event.repeat_count)
-
         gift_lower = str(gift_name).lower()
 
         # NẾU LÀ QUÀ CON HỔ -> NGƯỜI TỐT XUẤT HIỆN -> OFF LIVE CHIẾN THẮNG!
