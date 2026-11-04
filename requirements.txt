@@ -1,2 +1,1 @@
-Flask==3.0.2
-TikTokLive==6.5.0
+pip install Flask==2.3.3 TikTokLive==5.5.0
