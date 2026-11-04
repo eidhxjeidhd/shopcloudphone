@@ -1,2 +1,2 @@
 Flask==3.0.2
-TikTokLive==6.5.0
+TikTokLive==5.0.0
