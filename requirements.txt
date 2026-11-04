@@ -1,2 +1,2 @@
 Flask
-TikTokLive
+TikTokLive==6.5.0
