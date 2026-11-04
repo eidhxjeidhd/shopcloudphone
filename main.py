@@ -1,5 +1,6 @@
 import threading
 import time
+import os
 from flask import Flask, render_template_string, jsonify
 from TikTokLive import TikTokLiveClient
 from TikTokLive.types.events import GiftEvent
@@ -142,6 +143,6 @@ def api_status():
 if __name__ == '__main__':
     # Khởi chạy luồng nghe TikTok Live ngầm
     threading.Thread(target=start_tiktok_listener, daemon=True).start()
-    # Chạy Flask app
-    app.run(host='0.0.0.0', port=5000, debug=False)
-      
+    # Chạy Flask app với cổng động của Render
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
