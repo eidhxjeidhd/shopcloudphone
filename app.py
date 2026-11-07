@@ -4,8 +4,6 @@ from flask import Flask, render_template_string, jsonify, request
 
 app = Flask(__name__)
 
-OPENWEATHER_API_KEY = "1df1c2d3e4f5a6b7c8d9e0f1a2b3c4d5"
-
 @app.route('/')
 def index():
     html_template = """
@@ -14,7 +12,7 @@ def index():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TikTok Live - Dự Báo Thời Tiết Siêu Chuẩn</title>
+        <title>TikTok Live - Dự Báo Thời Tiết Tự Động Quét Vị Trí</title>
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
         <style>
             body { background-color: #0b0c10; color: white; font-family: 'Poppins', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
@@ -22,11 +20,13 @@ def index():
             .avatar-box { width: 85px; height: 85px; border-radius: 50%; border: 3px solid #2ed573; object-fit: cover; margin: 0 auto 10px auto; display: block; box-shadow: 0 0 15px rgba(46,213,115,0.4); }
             .title { color: #2ed573; font-size: 18px; font-weight: 700; margin: 0 0 5px 0; text-transform: uppercase; }
             .subtitle { color: #8f9bb3; font-size: 11px; margin: 0 0 15px 0; }
-            .search-box { display: flex; gap: 8px; margin-bottom: 15px; }
+            .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
             .search-input { flex: 1; background: #12131c; border: 1px solid #232738; padding: 10px 12px; border-radius: 10px; color: white; font-size: 13px; outline: none; }
             .search-input:focus { border-color: #2ed573; }
-            .search-btn { background: #2ed573; border: none; color: white; padding: 0 15px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+            .search-btn { background: #2ed573; border: none; color: white; padding: 0 12px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; }
             .search-btn:hover { background: #26af5f; }
+            .gps-btn { background: #ffa502; border: none; color: #12131c; padding: 8px 12px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 15px; font-size: 12px; }
+            .gps-btn:hover { background: #ffb143; }
             .win-label { font-size: 11px; color: #8f9bb3; font-weight: 600; letter-spacing: 1px; }
             .win-number { font-size: 48px; font-weight: bold; color: #ffa502; margin: 5px 0; text-shadow: 0 0 20px rgba(255,165,2,0.4); }
             .alert-box { background: rgba(46,213,115,0.1); border: 1px solid #2ed573; padding: 10px; border-radius: 14px; margin-top: 15px; text-align: left; }
@@ -37,44 +37,73 @@ def index():
     <body>
         <div class="game-container">
             <img src="https://i.ibb.co/Z1Yck7SH/7475196962448704520-avatar-png.png" alt="Avatar" class="avatar-box">
-            <div class="title">🌤️ THỜI TIẾT THỜI GIAN THỰC</div>
-            <div class="subtitle">Tra cứu dữ liệu khí tượng chuẩn xác theo khu vực</div>
+            <div class="title">🛰️ THỜI TIẾT QUÉT VỊ TRÍ GPS</div>
+            <div class="subtitle">Tự động nhận diện khu vực của bạn để dự báo chuẩn xác</div>
+            
+            <button class="gps-btn" onclick="getGPSLocation()">📍 Quét khu vực hiện tại của tôi</button>
+
             <div class="search-box">
-                <input type="text" id="cityInput" class="search-input" placeholder="Nhập tên thành phố (VD: Hanoi, Ho Chi Minh)..." value="Hanoi">
+                <input type="text" id="cityInput" class="search-input" placeholder="Hoặc nhập tên thành phố..." value="Hanoi">
                 <button class="search-btn" onclick="getWeather()">Xem</button>
             </div>
-            <div class="win-label" id="locationLabel">NHIỆT ĐỘ TẠI HANOI</div>
+            
+            <div class="win-label" id="locationLabel">NHIỆT ĐỘ KHU VỰC</div>
             <div class="win-number" id="tempDisplay">--°C</div>
             <div class="alert-box" id="infoSection">
-                <div class="alert-title" id="descDisplay">Trạng thái: Đang cập nhật...</div>
+                <div class="alert-title" id="descDisplay">Trạng thái: Nhấn nút quét GPS phía trên</div>
                 <div style="font-size: 11px; color: #8f9bb3;" id="feelsLikeDisplay">Cảm giác thực tế: --°C</div>
             </div>
             <div class="msg-box">
                 <div>💧 Độ ẩm: <strong id="humidityDisplay" style="color:#ffa502">--%</strong></div>
-                <div>💨 Gió: <strong id="windDisplay" style="color:#ffa502">-- m/s</strong></div>
+                <div>💨 Gió: <strong id="windDisplay" style="color:#ffa502">-- km/h</strong></div>
             </div>
         </div>
         <script>
-            function getWeather() {
-                const city = document.getElementById('cityInput').value.trim();
-                if(!city) return;
-                fetch(`/api/weather?city=${encodeURIComponent(city)}`)
+            function fetchWeather(query) {
+                fetch(`/api/weather?q=${encodeURIComponent(query)}`)
                     .then(res => res.json())
                     .then(data => {
                         if(data.success) {
-                            document.getElementById('locationLabel').innerText = `NHIỆT ĐỘ TẠI ${data.city.toUpperCase()}, ${data.country}`;
+                            document.getElementById('locationLabel').innerText = `TẠI ${data.city.toUpperCase()}`;
                             document.getElementById('tempDisplay').innerText = `${data.temperature}°C`;
                             document.getElementById('descDisplay').innerText = `☁️ Mô tả: ${data.description}`;
                             document.getElementById('feelsLikeDisplay').innerText = `🌡️ Cảm giác như: ${data.feels_like}°C`;
                             document.getElementById('humidityDisplay').innerText = `${data.humidity}%`;
-                            document.getElementById('windDisplay').innerText = `${data.wind_speed} m/s`;
+                            document.getElementById('windDisplay').innerText = `${data.wind_speed} km/h`;
                         } else {
                             alert(data.error || "Không tìm thấy địa điểm!");
                         }
                     })
                     .catch(err => console.log("Lỗi tải thời tiết:", err));
             }
-            window.onload = () => { getWeather(); };
+
+            function getWeather() {
+                const city = document.getElementById('cityInput').value.trim();
+                if(city) fetchWeather(city);
+            }
+
+            function getGPSLocation() {
+                if (navigator.geolocation) {
+                    document.getElementById('descDisplay').innerText = "🛰️ Đang quét vị trí GPS của bạn...";
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const lat = position.coords.latitude;
+                            const lon = position.coords.longitude;
+                            // Gửi tọa độ vĩ độ, kinh độ lên server để quét thời tiết chính xác từng tọa độ
+                            fetchWeather(`${lat},${lon}`);
+                        },
+                        (error) => {
+                            alert("Không thể quét vị trí. Vui lòng cấp quyền vị trí cho trình duyệt hoặc nhập tên thành phố thủ công!");
+                            document.getElementById('descDisplay').innerText = "⚠️ Không thể lấy vị trí GPS.";
+                        }
+                    );
+                } else {
+                    alert("Trình duyệt của bạn không hỗ trợ định vị GPS.");
+                }
+            }
+
+            // Tự động quét GPS khi vừa mở web lên
+            window.onload = () => { getGPSLocation(); };
         </script>
     </body>
     </html>
@@ -83,26 +112,30 @@ def index():
 
 @app.route('/api/weather')
 def api_weather():
-    city = request.args.get('city', 'Hanoi')
-    url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={OPENWEATHER_API_KEY}&units=metric&lang=vi"
+    query = request.args.get('q', 'Hanoi')
+    # wttr.in hỗ trợ nhận cả tên thành phố hoặc cặp tọa độ "lat,lon" cực kỳ thông minh
+    url = f"https://wttr.in/{query}?format=j1"
     try:
-        response = requests.get(url, timeout=5)
+        headers = {'User-Agent': 'curl/7.68.0'}
+        response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             data = response.json()
+            current = data['current_condition'][0]
+            area_name = data.get('nearest_area', [{}])[0].get('areaName', [{}])[0].get('value', query)
+            
             return jsonify({
                 "success": True,
-                "city": data["name"],
-                "country": data["sys"]["country"],
-                "temperature": round(data["main"]["temp"], 1),
-                "feels_like": round(data["main"]["feels_like"], 1),
-                "humidity": data["main"]["humidity"],
-                "description": data["weather"][0]["description"].capitalize(),
-                "wind_speed": data["wind"]["speed"]
+                "city": area_name,
+                "temperature": current['temp_C'],
+                "feels_like": current['FeelsLikeC'],
+                "humidity": current['humidity'],
+                "description": current['weatherDesc'][0]['value'],
+                "wind_speed": current['windspeedKmph']
             })
         else:
-            return jsonify({"success": False, "error": "Không tìm thấy tên thành phố hoặc lỗi API!"})
+            return jsonify({"success": False, "error": "Không thể lấy dữ liệu thời tiết khu vực này!"})
     except Exception as e:
-        return jsonify({"success": False, "error": f"Lỗi kết nối: {str(e)}"})
+        return jsonify({"success": False, "error": f"Lỗi hệ thống: {str(e)}"})
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
