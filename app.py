@@ -12,7 +12,7 @@ def index():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TikTok Live - Dự Báo Thời Tiết Chuẩn Xác</title>
+        <title>TikTok Live - Dự Báo Thời Tiết GPS Chuẩn Xác</title>
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
         <style>
             body { background-color: #0b0c10; color: white; font-family: 'Poppins', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
@@ -25,6 +25,8 @@ def index():
             .search-input:focus { border-color: #2ed573; }
             .search-btn { background: #2ed573; border: none; color: white; padding: 0 12px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; }
             .search-btn:hover { background: #26af5f; }
+            .gps-btn { background: #ffa502; border: none; color: #12131c; padding: 8px 12px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; font-size: 12px; }
+            .gps-btn:hover { background: #ffb143; }
             .voice-btn { background: #3b82f6; border: none; color: white; padding: 8px 12px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 12px; font-size: 12px; }
             .voice-btn:hover { background: #2563eb; }
             .win-label { font-size: 11px; color: #8f9bb3; font-weight: 600; letter-spacing: 1px; }
@@ -38,19 +40,20 @@ def index():
         <div class="game-container">
             <img src="https://i.ibb.co/Z1Yck7SH/7475196962448704520-avatar-png.png" alt="Avatar" class="avatar-box">
             <div class="title">🎙️ AI PHÁT THANH VIÊN THỜI TIẾT</div>
-            <div class="subtitle">Tra cứu chuẩn dấu • Dự báo theo giờ • Giọng đọc AI</div>
+            <div class="subtitle">Quét GPS chuẩn xác • Dự báo theo giờ • Giọng đọc AI</div>
             
+            <button class="gps-btn" onclick="getGPSLocation()">📍 Quét lại GPS khu vực hiện tại</button>
             <button class="voice-btn" onclick="speakWeather()">🔊 Nghe AI đọc bản tin thời tiết</button>
 
             <div class="search-box">
-                <input type="text" id="cityInput" class="search-input" placeholder="Nhập tên khu vực (VD: Hào Nam, Hà Nội)..." value="Hào Nam">
+                <input type="text" id="cityInput" class="search-input" placeholder="Nhập tên khu vực..." value="Hà Nội">
                 <button class="search-btn" onclick="getWeather()">Xem</button>
             </div>
             
             <div class="win-label" id="locationLabel">NHIỆT ĐỘ KHU VỰC</div>
             <div class="win-number" id="tempDisplay">--°C</div>
             <div class="alert-box" id="infoSection">
-                <div class="alert-title" id="descDisplay">Trạng thái: Đang tải...</div>
+                <div class="alert-title" id="descDisplay">Trạng thái: Sẵn sàng quét GPS...</div>
                 <div style="font-size: 11px; color: #8f9bb3;" id="feelsLikeDisplay">Cảm giác thực tế: --°C</div>
             </div>
             
@@ -63,6 +66,7 @@ def index():
             let lastSpokenText = "";
 
             function fetchWeather(query) {
+                document.getElementById('descDisplay').innerText = "🔄 Đang lấy dữ liệu thời tiết...";
                 fetch(`/api/weather?q=${encodeURIComponent(query)}`)
                     .then(res => res.json())
                     .then(data => {
@@ -91,6 +95,27 @@ def index():
                 if(city) fetchWeather(city);
             }
 
+            function getGPSLocation() {
+                if (navigator.geolocation) {
+                    document.getElementById('descDisplay').innerText = "🛰️ Đang quét tọa độ GPS thực tế...";
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const lat = position.coords.latitude;
+                            const lon = position.coords.longitude;
+                            // Gửi chính xác tọa độ thiết bị lên để server lấy đúng thời tiết khu vực đó
+                            fetchWeather(`${lat},${lon}`);
+                        },
+                        (error) => {
+                            alert("Không thể quét vị trí GPS. Vui lòng nhập tên khu vực thủ công!");
+                            document.getElementById('descDisplay').innerText = "⚠️ Lỗi định vị GPS.";
+                        },
+                        { timeout: 7000 }
+                    );
+                } else {
+                    alert("Trình duyệt không hỗ trợ GPS.");
+                }
+            }
+
             function speakWeather() {
                 if (!lastSpokenText) {
                     alert("Đang tải dữ liệu, vui lòng đợi giây lát!");
@@ -108,8 +133,8 @@ def index():
                 }
             }
 
-            // Mặc định load luôn Hào Nam chuẩn chỉnh ngay khi mở web
-            window.onload = () => { fetchWeather('Hào Nam'); };
+            // Mặc định ban đầu load Hà Nội để không bị trống màn hình
+            window.onload = () => { fetchWeather('Hà Nội'); };
         </script>
     </body>
     </html>
@@ -118,7 +143,13 @@ def index():
 
 @app.route('/api/weather')
 def api_weather():
-    query = request.args.get('q', 'Hào Nam')
+    query = request.args.get('q', 'Hà Nội')
+    
+    display_name = query
+    # Nếu client truyền lên chuỗi tọa độ (có dấu phẩy và số), hiển thị tên khu vực thân thiện thay vì dãy số thô
+    if "," in query and any(char.isdigit() for char in query):
+        display_name = "Khu Vực Hiện Tại (GPS)"
+
     url = f"https://wttr.in/{query}?format=j1"
     try:
         headers = {'User-Agent': 'curl/7.68.0'}
@@ -127,15 +158,10 @@ def api_weather():
             data = response.json()
             current = data['current_condition'][0]
             
-            # Lấy chính xác tên do người dùng nhập hoặc trả về tên chuẩn có dấu
-            area_name = query.strip()
-            if area_name.lower() in ["hanoi", "ha noi"]:
-                area_name = "Hà Nội"
-
             weather_code = str(current.get('weatherCode', ''))
             desc_en = current['weatherDesc'][0]['value'].lower()
             
-            status_vn = f"Trời Nắng Ráo, Quang Mây"
+            status_vn = "Trời Nắng Ráo, Quang Mây"
             if "sun" in desc_en or "clear" in desc_en or weather_code in ['113']:
                 status_vn = "Trời Nắng Ráo, Quang Mây"
             elif "thunder" in desc_en or "storm" in desc_en or weather_code in ['386', '389', '392', '395']:
@@ -174,7 +200,7 @@ def api_weather():
 
             return jsonify({
                 "success": True,
-                "city": area_name,
+                "city": display_name,
                 "temperature": current['temp_C'],
                 "feels_like": current['FeelsLikeC'],
                 "humidity": current['humidity'],
