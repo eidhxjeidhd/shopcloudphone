@@ -12,7 +12,7 @@ def index():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TikTok Live - Dự Báo Thời Tiết AI Chuẩn Dấu</title>
+        <title>TikTok Live - Dự Báo Thời Tiết Chuẩn Xác</title>
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
         <style>
             body { background-color: #0b0c10; color: white; font-family: 'Poppins', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
@@ -38,7 +38,7 @@ def index():
         <div class="game-container">
             <img src="https://i.ibb.co/Z1Yck7SH/7475196962448704520-avatar-png.png" alt="Avatar" class="avatar-box">
             <div class="title">🎙️ AI PHÁT THANH VIÊN THỜI TIẾT</div>
-            <div class="subtitle">Quét GPS chuẩn dấu • Dự báo theo giờ • Giọng đọc AI</div>
+            <div class="subtitle">Tra cứu chuẩn dấu • Dự báo theo giờ • Giọng đọc AI</div>
             
             <button class="voice-btn" onclick="speakWeather()">🔊 Nghe AI đọc bản tin thời tiết</button>
 
@@ -50,7 +50,7 @@ def index():
             <div class="win-label" id="locationLabel">NHIỆT ĐỘ KHU VỰC</div>
             <div class="win-number" id="tempDisplay">--°C</div>
             <div class="alert-box" id="infoSection">
-                <div class="alert-title" id="descDisplay">Trạng thái: Đang quét vị trí...</div>
+                <div class="alert-title" id="descDisplay">Trạng thái: Đang tải...</div>
                 <div style="font-size: 11px; color: #8f9bb3;" id="feelsLikeDisplay">Cảm giác thực tế: --°C</div>
             </div>
             
@@ -80,7 +80,7 @@ def index():
 
                             lastSpokenText = `Xin chào các bạn! Dữ liệu thời tiết tại khu vực ${data.city} hiện tại là ${data.temperature} độ C, với trạng thái ${data.weather_status}. Cảm giác thực tế ngoài trời là ${data.feels_like} độ C, độ ẩm khoảng ${data.humidity} phần trăm. Chúc các bạn có một ngày làm việc và học tập hiệu quả!`;
                         } else {
-                            fetchWeather('Hào Nam');
+                            alert("Không tìm thấy địa điểm!");
                         }
                     })
                     .catch(err => console.log("Lỗi:", err));
@@ -91,27 +91,9 @@ def index():
                 if(city) fetchWeather(city);
             }
 
-            function autoScanGPS() {
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            const lat = position.coords.latitude;
-                            const lon = position.coords.longitude;
-                            fetchWeather(`${lat},${lon}`);
-                        },
-                        (error) => {
-                            fetchWeather('Hào Nam');
-                        },
-                        { timeout: 4000 }
-                    );
-                } else {
-                    fetchWeather('Hào Nam');
-                }
-            }
-
             function speakWeather() {
                 if (!lastSpokenText) {
-                    alert("Đang quét dữ liệu, vui lòng đợi giây lát!");
+                    alert("Đang tải dữ liệu, vui lòng đợi giây lát!");
                     return;
                 }
                 if ('speechSynthesis' in window) {
@@ -126,7 +108,8 @@ def index():
                 }
             }
 
-            window.onload = () => { autoScanGPS(); };
+            // Mặc định load luôn Hào Nam chuẩn chỉnh ngay khi mở web
+            window.onload = () => { fetchWeather('Hào Nam'); };
         </script>
     </body>
     </html>
@@ -139,36 +122,20 @@ def api_weather():
     url = f"https://wttr.in/{query}?format=j1"
     try:
         headers = {'User-Agent': 'curl/7.68.0'}
-        response = requests.get(url, headers=headers, timeout=4)
+        response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             data = response.json()
             current = data['current_condition'][0]
-            raw_area = data.get('nearest_area', [{}])[0].get('areaName', [{}])[0].get('value', query)
             
-            # Bảng từ điển chuyển đổi địa danh chuẩn tiếng Việt có dấu
-            city_vn_map = {
-                "hao nam": "Hào Nam",
-                "ha noi": "Hà Nội",
-                "ho chi minh": "Hồ Chí Minh",
-                "da nang": "Đà Nẵng",
-                "hai phong": "Hải Phòng",
-                "can tho": "Cần Thơ",
-                "bien hoa": "Biên Hòa",
-                "hue": "Huế",
-                "nha trang": "Nha Trang"
-            }
-            
-            area_lower = raw_area.lower().strip()
-            area_name = city_vn_map.get(area_lower, raw_area)
-            if "hao nam" in area_lower:
-                area_name = "Hào Nam"
-            elif "hanoi" in area_lower or "ha noi" in area_lower:
+            # Lấy chính xác tên do người dùng nhập hoặc trả về tên chuẩn có dấu
+            area_name = query.strip()
+            if area_name.lower() in ["hanoi", "ha noi"]:
                 area_name = "Hà Nội"
 
             weather_code = str(current.get('weatherCode', ''))
             desc_en = current['weatherDesc'][0]['value'].lower()
             
-            status_vn = f"🌤️ {current['weatherDesc'][0]['value']}"
+            status_vn = f"Trời Nắng Ráo, Quang Mây"
             if "sun" in desc_en or "clear" in desc_en or weather_code in ['113']:
                 status_vn = "Trời Nắng Ráo, Quang Mây"
             elif "thunder" in desc_en or "storm" in desc_en or weather_code in ['386', '389', '392', '395']:
