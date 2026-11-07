@@ -12,7 +12,7 @@ def index():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TikTok Live - Dự Báo Thời Tiết Tự Động Quét Vị Trí</title>
+        <title>TikTok Live - Dự Báo Thời Tiết Chi Tiết</title>
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
         <style>
             body { background-color: #0b0c10; color: white; font-family: 'Poppins', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
@@ -30,15 +30,15 @@ def index():
             .win-label { font-size: 11px; color: #8f9bb3; font-weight: 600; letter-spacing: 1px; }
             .win-number { font-size: 48px; font-weight: bold; color: #ffa502; margin: 5px 0; text-shadow: 0 0 20px rgba(255,165,2,0.4); }
             .alert-box { background: rgba(46,213,115,0.1); border: 1px solid #2ed573; padding: 10px; border-radius: 14px; margin-top: 15px; text-align: left; }
-            .alert-title { color: #2ed573; font-weight: bold; font-size: 13px; margin-bottom: 4px; }
+            .alert-title { color: #2ed573; font-weight: bold; font-size: 14px; margin-bottom: 4px; }
             .msg-box { background: #12131c; border: 1px solid #232738; padding: 12px 15px; border-radius: 12px; margin-top: 12px; font-size: 13px; word-break: break-word; color: #d1d5db; line-height: 1.4; display: flex; align-items: center; justify-content: space-between; }
         </style>
     </head>
     <body>
         <div class="game-container">
             <img src="https://i.ibb.co/Z1Yck7SH/7475196962448704520-avatar-png.png" alt="Avatar" class="avatar-box">
-            <div class="title">🛰️ THỜI TIẾT QUÉT VỊ TRÍ GPS</div>
-            <div class="subtitle">Tự động nhận diện khu vực của bạn để dự báo chuẩn xác</div>
+            <div class="title">🛰️ DỰ BÁO THỜI TIẾT CHI TIẾT</div>
+            <div class="subtitle">Quét vị trí GPS & Phân tích trạng thái Nắng, Mưa, Dông chuẩn xác</div>
             
             <button class="gps-btn" onclick="getGPSLocation()">📍 Quét khu vực hiện tại của tôi</button>
 
@@ -66,7 +66,7 @@ def index():
                         if(data.success) {
                             document.getElementById('locationLabel').innerText = `TẠI ${data.city.toUpperCase()}`;
                             document.getElementById('tempDisplay').innerText = `${data.temperature}°C`;
-                            document.getElementById('descDisplay').innerText = `☁️ Mô tả: ${data.description}`;
+                            document.getElementById('descDisplay').innerText = data.weather_status;
                             document.getElementById('feelsLikeDisplay').innerText = `🌡️ Cảm giác như: ${data.feels_like}°C`;
                             document.getElementById('humidityDisplay').innerText = `${data.humidity}%`;
                             document.getElementById('windDisplay').innerText = `${data.wind_speed} km/h`;
@@ -89,20 +89,18 @@ def index():
                         (position) => {
                             const lat = position.coords.latitude;
                             const lon = position.coords.longitude;
-                            // Gửi tọa độ vĩ độ, kinh độ lên server để quét thời tiết chính xác từng tọa độ
                             fetchWeather(`${lat},${lon}`);
                         },
                         (error) => {
-                            alert("Không thể quét vị trí. Vui lòng cấp quyền vị trí cho trình duyệt hoặc nhập tên thành phố thủ công!");
+                            alert("Không thể quét vị trí. Vui lòng cấp quyền vị trí hoặc nhập thủ công!");
                             document.getElementById('descDisplay').innerText = "⚠️ Không thể lấy vị trí GPS.";
                         }
                     );
                 } else {
-                    alert("Trình duyệt của bạn không hỗ trợ định vị GPS.");
+                    alert("Trình duyệt không hỗ trợ định vị GPS.");
                 }
             }
 
-            // Tự động quét GPS khi vừa mở web lên
             window.onload = () => { getGPSLocation(); };
         </script>
     </body>
@@ -113,7 +111,6 @@ def index():
 @app.route('/api/weather')
 def api_weather():
     query = request.args.get('q', 'Hanoi')
-    # wttr.in hỗ trợ nhận cả tên thành phố hoặc cặp tọa độ "lat,lon" cực kỳ thông minh
     url = f"https://wttr.in/{query}?format=j1"
     try:
         headers = {'User-Agent': 'curl/7.68.0'}
@@ -123,13 +120,33 @@ def api_weather():
             current = data['current_condition'][0]
             area_name = data.get('nearest_area', [{}])[0].get('areaName', [{}])[0].get('value', query)
             
+            # Lấy mã code thời tiết từ wttr.in để dịch chi tiết dạng Nắng / Mưa / Dông
+            weather_code = str(current.get('weatherCode', ''))
+            desc_en = current['weatherDesc'][0]['value'].lower()
+            
+            # Bộ từ điển chuyển đổi trạng thái tiếng Việt chi tiết 100%
+            status_vn = f"🌤️ {current['weatherDesc'][0]['value']}"
+            
+            if "sun" in desc_en or "clear" in desc_en or weather_code in ['113']:
+                status_vn = "☀️ Trời Nắng Ráo, Quang Mây"
+            elif "thunder" in desc_en or "storm" in desc_en or weather_code in ['386', '389', '392', '395']:
+                status_vn = "⚡ Cảnh Báo: Có Mưa Dông, Sấm Sét!"
+            elif "heavy rain" in desc_en or weather_code in ['302', '305', '308', '359']:
+                status_vn = "🌧️ Trời Đang Có Mưa Rất To!"
+            elif "rain" in desc_en or "shower" in desc_en or weather_code in ['293', '296', '299', '305', '353', '356']:
+                status_vn = "🌦️ Trời Đang Có Mưa, Mưa Rào Nhỏ"
+            elif "cloud" in desc_en or "overcast" in desc_en or weather_code in ['116', '119', '122']:
+                status_vn = "☁️ Trời Nhiều Mây, Dịu Mát"
+            elif "fog" in desc_en or "mist" in desc_en or weather_code in ['143', '248', '260']:
+                status_vn = "🌫️ Sương Mù Dày Đặc, Hạn Chế Tầm Nhìn"
+
             return jsonify({
                 "success": True,
                 "city": area_name,
                 "temperature": current['temp_C'],
                 "feels_like": current['FeelsLikeC'],
                 "humidity": current['humidity'],
-                "description": current['weatherDesc'][0]['value'],
+                "weather_status": status_vn,
                 "wind_speed": current['windspeedKmph']
             })
         else:
