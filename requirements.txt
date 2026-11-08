@@ -1,4 +1,2 @@
-flask
-cloudscraper
-beautifulsoup4
-gunicorn
+Flask
+Flask-Cors
