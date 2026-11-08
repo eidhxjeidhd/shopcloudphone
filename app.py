@@ -228,8 +228,8 @@ def home():
                     }}
 
                     let html = '';
-                    history.forEach((k, index) => {{
-                        html += `<div style="padding: 4px 0; border-bottom: 1px solid #1e293b; color: #4ade80; font-family: monospace;">🔑 ${{(index + 1)}}. ${k}</div>`;
+                    history.forEach((itemText, index) => {{
+                        html += '<div style="padding: 4px 0; border-bottom: 1px solid #1e293b; color: #4ade80; font-family: monospace;">🔑 ' + (index + 1) + '. ' + itemText + '</div>';
                     }});
                     historyBox.innerHTML = html;
                 }}
