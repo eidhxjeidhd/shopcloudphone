@@ -4,11 +4,17 @@ import json
 import random
 import string
 from flask import Flask, render_template_string, jsonify, request, session, redirect
-from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
 app.secret_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+
+# Tự động bật CORS thủ công cho mọi tên miền gọi vào mà không cần cài thư viện ngoài
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
+    return response
 
 DB_FILE = "keys_stock_custom.json"
 ADMIN_PASSWORD = "admin_gagaming_123" # Mật khẩu admin
@@ -37,11 +43,10 @@ def home():
     stock_count = len(db["stock"])
     current_link = db.get("current_link", "")
     
-    # Nếu chưa cấu hình link vượt
     if not current_link:
         btn_html = '<div style="background: #334155; color: #ef4444; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: 15px; font-size: 13px;">⚠️ Admin chưa thiết lập Link vượt key!</div>'
     else:
-        btn_html = f'<a href="{current_link}" target="_blank" class="btn-link" onclick="markBypass()">🔗 1. VƯỢT LINK NHẬN KEY</a>'
+        btn_html = f'<a href="{current_link}" target="_blank" class="btn-link" onclick="markBypass()">🔗 1. MỞ TRANG VƯỢT LINK</a>'
 
     html_template = f"""
     <!DOCTYPE html>
@@ -253,14 +258,12 @@ def admin_panel():
             <h2>⚙️ Cài Đặt Hệ Thống & Kho Key</h2>
             <div class="stat">📦 Tổng số key trong kho: {stock_count} Key</div>
             
-            <!-- Phần 1: Đổi Link Vượt -->
             <form method="POST">
                 <label style="font-size: 12px; color: #38bdf8; font-weight: bold;">🔗 Nhập Link Vượt (Dán link bất kỳ của ông vào đây):</label>
                 <input type="text" name="new_link" value="{current_link}" placeholder="Ví dụ: Link Blogspot, Link4M...">
                 <button type="submit" class="btn-link-update">💾 Lưu Link Vượt</button>
             </form>
 
-            <!-- Phần 2: Nạp Key -->
             <form method="POST" class="section">
                 <label style="font-size: 12px; color: #38bdf8; font-weight: bold;">📥 Nạp Lô Key Mới Vào Kho:</label>
                 
@@ -298,7 +301,6 @@ def admin_logout():
     session.pop('admin_logged', None)
     return redirect('/admin')
 
-# --- 4. API KIỂM TRA KEY TRONG SCRIPT ---
 @app.route('/api/check-key')
 def api_check_key():
     key_input = request.args.get('key')
