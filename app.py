@@ -3,13 +3,11 @@ import time
 import json
 import random
 import string
-from flask import Flask, render_template_string, jsonify, request, session, redirect
+from flask import Flask, render_template_string, jsonify, request
 
 app = Flask(__name__)
-app.secret_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
 
 DB_FILE = "keys.json"
-# Link Blogspot của ông
 BLOGSPOT_LINK = "https://tieb0iedbd8uhsb.blogspot.com/2026/10/gagaming-vuot-link-lay-key-box-sizing_01383317790.html?m=1"
 
 def load_db():
@@ -32,15 +30,6 @@ def generate_key():
 
 @app.route('/')
 def index():
-    # Kiểm tra xem đã vượt link thành công chưa qua session
-    is_bypassed = session.get('bypassed', False)
-    
-    btn_class = "active" if is_bypassed else ""
-    btn_disabled = "" if is_bypassed else "disabled"
-    btn_text = "✨ NHẬN KEY NGAY" if is_bypassed else "🔒 2. TẠO KEY MỚI (CHƯA HOÀN TẤT)"
-    note_text = "✅ Đã vượt link thành công! Bấm nhận key ngay." if is_bypassed else "⚠️ Bạn bắt buộc phải hoàn thành vượt link trên Blogspot và bấm quay lại đây!"
-    note_color = "#4ade80" if is_bypassed else "#ef4444"
-
     html_template = f"""
     <!DOCTYPE html>
     <html lang="vi">
@@ -59,36 +48,68 @@ def index():
             button.active:hover {{ background: #16a34a; }}
             
             .key-box {{ margin-top: 15px; font-size: 14px; color: #4ade80; background: #0b0f19; padding: 12px; border-radius: 8px; border: 1px solid #334155; word-break: break-all; user-select: all; }}
-            .note {{ font-size: 11px; color: {note_color}; margin-top: 10px; }}
+            .note {{ font-size: 11px; color: #ef4444; margin-top: 10px; }}
         </style>
     </head>
     <body>
         <div class="card">
-            <h2>🔑 Bảo Mật Chống Bypass</h2>
-            <p style="font-size: 12px; color: #94a3b8;">Hoàn thành vượt link Blogspot để mở khóa Key.</p>
+            <h2>🔑 Hệ Thống Key 24H</h2>
+            <p style="font-size: 12px; color: #94a3b8;">Vượt link Blogspot để mở khóa và nhận Key.</p>
             
-            <!-- Bước 1: Sang Blogspot -->
-            <a href="{BLOGSPOT_LINK}" target="_blank" class="btn-link">🔗 1. VƯỢT LINK TRÊN BLOGSPOT</a>
+            <!-- Bước 1: Bấm vào đây sang Blogspot -->
+            <a href="{BLOGSPOT_LINK}" target="_blank" class="btn-link" onclick="markBypass()">🔗 1. VƯỢT LINK TRÊN BLOGSPOT</a>
             
-            <!-- Bước 2: Nút nhận key chỉ sáng khi callback thành công -->
-            <button id="getKeyBtn" class="{btn_class}" onclick="getNewKey()" {btn_disabled}>{btn_text}</button>
-            <div class="note" id="noteText">{note_text}</div>
+            <!-- Bước 2: Nút nhận key -->
+            <button id="getKeyBtn" onclick="getNewKey()" disabled>🔒 2. TẠO KEY MỚI (CHƯA VƯỢT LINK)</button>
+            <div class="note" id="noteText">⚠️ Hãy bấm nút số 1, sau đó quay lại đây để nhận Key!</div>
             
             <div style="text-align: left; margin-top: 20px; font-size: 12px; color: #94a3b8;">Key của bạn:</div>
             <div class="key-box" id="keyResult">Chưa có key hợp lệ.</div>
         </div>
 
         <script>
+            // Kiểm tra trạng thái ngay khi vừa load lại trang hoặc quay lại tab
+            window.addEventListener('focus', checkBypassStatus);
+            window.addEventListener('DOMContentLoaded', checkBypassStatus);
+
+            function markBypass() {{
+                // Ghi nhận thời điểm bấm sang blogspot
+                localStorage.setItem('ga_bypass_time', Date.now());
+                
+                // Sau 3 giây cho phép bật nút (đủ thời gian để qua blogspot)
+                setTimeout(() => {{
+                    localStorage.setItem('ga_bypassed', 'true');
+                    checkBypassStatus();
+                }}, 3000);
+            }}
+
+            function checkBypassStatus() {{
+                const isBypassed = localStorage.getItem('ga_bypassed');
+                if (isBypassed === 'true') {{
+                    const btn = document.getElementById('getKeyBtn');
+                    const note = document.getElementById('noteText');
+                    
+                    btn.removeAttribute('disabled');
+                    btn.classList.add('active');
+                    btn.innerText = "✨ TẠO KEY MỚI NGAY";
+                    note.style.color = "#4ade80";
+                    note.innerText = "✅ Đã vượt link thành công! Bấm nhận key ngay.";
+                }}
+            }}
+
             function getNewKey() {{
                 const keyBox = document.getElementById('keyResult');
                 keyBox.innerText = "Đang tạo key...";
 
-                fetch('/api/generate-key', {{ method: 'POST' }})
+                fetch('/api/generate-key')
                     .then(res => res.json())
                     .then(data => {{
                         if(data.success) {{
                             keyBox.innerText = data.key;
                             alert("Thành công! Key có hiệu lực 24 giờ.");
+                            // Reset lại trạng thái để lượt sau bắt buộc phải vượt link lại từ đầu
+                            localStorage.removeItem('ga_bypassed');
+                            location.reload();
                         }} else {{
                             keyBox.innerText = "❌ Lỗi: " + data.message;
                         }}
@@ -103,18 +124,8 @@ def index():
     """
     return render_template_string(html_template)
 
-@app.route('/verify-success')
-def verify_success():
-    # Route này chỉ được gọi khi người dùng thực sự hoàn thành và quay lại từ Blogspot
-    session['bypassed'] = True
-    session['bypass_time'] = time.time()
-    return redirect('/')
-
-@app.route('/api/generate-key', methods=['POST'])
+@app.route('/api/generate-key')
 def api_generate_key():
-    if not session.get('bypassed'):
-        return jsonify({"success": False, "message": "Chưa hoàn tất vượt link! Đừng hòng bypass."}), 403
-
     try:
         db = load_db()
         new_k = generate_key()
@@ -125,9 +136,6 @@ def api_generate_key():
             "created_at": time.time()
         }
         save_db(db)
-        
-        # Xóa session để bắt buộc lượt sau phải vượt link lại từ đầu
-        session.pop('bypassed', None)
         
         return jsonify({"success": True, "key": new_k})
     except Exception as e:
