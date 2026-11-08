@@ -40,7 +40,7 @@ def save_db(data):
     except Exception as e:
         print("Lỗi lưu DB:", e)
 
-# --- 1. GIAO DIỆN CHÍNH CHO NGƯỜI DÙNG ---
+# --- 1. GIAO DIỆN CHÍNH CHO NGƯỜI DÙNG (ĐÃ XÓA BỎ NÚT BƯỚC 2) ---
 @app.route('/')
 def home():
     try:
@@ -51,7 +51,7 @@ def home():
         if not current_link:
             btn_html = '<div style="background: #334155; color: #ef4444; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: 15px; font-size: 13px;">⚠️ Admin chưa thiết lập Link vượt key!</div>'
         else:
-            btn_html = f'<a href="{current_link}" target="_blank" id="linkBtn" class="btn-link" onclick="markTargetClicked()">🔗 BƯỚC 1: MỞ TRANG VƯỢT LINK</a>'
+            btn_html = f'<a href="{current_link}" target="_blank" id="linkBtn" class="btn-link" onclick="markTargetClicked()">🔗 MỞ TRANG VƯỢT LINK (LẤY NỘI DUNG SAO CHÉP)</a>'
 
         html_template = f"""
         <!DOCTYPE html>
@@ -63,40 +63,31 @@ def home():
             <style>
                 body {{ background: #0f172a; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }}
                 .card {{ background: #1e293b; padding: 25px; border-radius: 16px; width: 100%; max-width: 440px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; text-align: center; }}
-                .btn-link {{ background: #3b82f6; text-decoration: none; display: block; padding: 12px; border-radius: 8px; font-weight: bold; color: white; margin-top: 15px; box-sizing: border-box; transition: 0.2s; }}
+                .btn-link {{ background: #3b82f6; text-decoration: none; display: block; padding: 14px; border-radius: 8px; font-weight: bold; color: white; margin-top: 15px; box-sizing: border-box; transition: 0.2s; }}
                 .btn-link:hover {{ background: #2563eb; }}
                 
-                button {{ background: #475569; color: #94a3b8; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: not-allowed; margin-top: 15px; transition: 0.2s; }}
-                button.active {{ background: #22c55e; color: white; cursor: pointer; }}
-                button.active:hover {{ background: #16a34a; }}
-                
                 .stock-badge {{ background: #334155; color: #38bdf8; padding: 6px 12px; border-radius: 20px; font-size: 12px; display: inline-block; margin-bottom: 15px; font-weight: bold; }}
-                .key-box {{ margin-top: 15px; font-size: 14px; color: #4ade80; background: #0b0f19; padding: 12px; border-radius: 8px; border: 1px solid #334155; word-break: break-all; user-select: all; }}
                 .history-box {{ margin-top: 15px; text-align: left; background: #0b0f19; padding: 10px; border-radius: 8px; border: 1px solid #334155; max-height: 120px; overflow-y: auto; font-size: 12px; }}
-                .note {{ font-size: 11px; color: #ef4444; margin-top: 10px; }}
+                .note {{ font-size: 11px; color: #94a3b8; margin-top: 12px; line-height: 1.4; }}
                 .admin-link {{ display: block; margin-top: 15px; font-size: 11px; color: #64748b; text-decoration: none; }}
                 .admin-link:hover {{ color: #94a3b8; }}
             </style>
         </head>
         <body>
             <div class="card" id="mainCard">
-                <h2>🔑 Kho Key Tự Động</h2>
-                <div class="stock-badge">📦 Số key sẵn sàng trong kho: {stock_count} Key</div>
-                <p style="font-size: 12px; color: #94a3b8;">Bắt buộc phải qua trang vượt link mới được mở khóa lấy key.</p>
+                <h2>🔑 Hệ Thống Vượt Link</h2>
+                <div class="stock-badge">📦 Kho sẵn sàng: {stock_count} Key</div>
+                <p style="font-size: 12px; color: #94a3b8;">Bấm vào nút bên dưới để sang trang trạm trung gian lấy nội dung sao chép[span_5](start_span)[span_5](end_span)[span_6](start_span)[span_6](end_span).</p>
                 
                 <div id="actionContainer">
                     {btn_html}
-                    <button id="getKeyBtn" onclick="getKeyFromStock()" disabled>🔒 BƯỚC 2: NHẬN KEY TỪ KHO (CHƯA VƯỢT LINK)</button>
                 </div>
 
-                <div class="note" id="noteText">⚠️ Hãy bấm nút vượt link ở trên trước! Nếu bấm quay lại sớm, hệ thống sẽ báo gian lận.</div>
-                
-                <div style="text-align: left; margin-top: 20px; font-size: 12px; color: #94a3b8;">Key của bạn vừa rút:</div>
-                <div class="key-box" id="keyResult">Chưa có key được rút.</div>
+                <div class="note" id="noteText">⚠️ <b>Lưu ý:</b> Sau khi bấm mở link, tuyệt đối không được quay lại trang này sớm. Nếu cố tình quay lại, hệ thống sẽ khóa và báo gian lận[span_7](start_span)[span_7](end_span)[span_8](start_span)[span_8](end_span)!</div>
 
-                <div style="text-align: left; margin-top: 15px; font-size: 12px; color: #38bdf8; font-weight: bold;">📜 Lịch sử key đã rút trên máy này:</div>
+                <div style="text-align: left; margin-top: 15px; font-size: 12px; color: #38bdf8; font-weight: bold;">📜 Lịch sử thao tác trên máy này:</div>
                 <div class="history-box" id="historyList">
-                    <span style="color: #64748b;">Chưa có lịch sử rút key nào.</span>
+                    <span style="color: #64748b;">Chưa có lịch sử.</span>
                 </div>
 
                 <a href="/admin" class="admin-link">⚙️ Quản lý kho (Admin)</a>
@@ -118,23 +109,8 @@ def home():
                     const clicked = localStorage.getItem('ga_clicked_link');
                     const passed = localStorage.getItem('ga_passed_verify');
 
-                    const btn = document.getElementById('getKeyBtn');
-                    const note = document.getElementById('noteText');
-
-                    if (clicked === 'true' && passed === 'true') {{
-                        if (localStorage.getItem('ga_perm_hidden') !== 'true') {{
-                            if (btn) {{
-                                btn.removeAttribute('disabled');
-                                btn.classList.add('active');
-                                btn.innerText = "✨ BƯỚC 2: RÚT KEY NGAY TỪ KHO";
-                            }}
-                            if (note) {{
-                                note.style.color = "#4ade80";
-                                note.innerText = "✅ Đã vượt link thành công! Bấm nhận key ngay.";
-                            }}
-                        }}
-                    }} else if (clicked === 'true' && passed !== 'true') {{
-                        // Bấm quay lại sớm -> Báo gian lận và ẩn sạch nút!
+                    if (clicked === 'true' && passed !== 'true') {{
+                        // Bấm quay lại sớm -> Khóa và báo gian lận ngay lập tức[span_9](start_span)[span_9](end_span)[span_10](start_span)[span_10](end_span)!
                         triggerFraudNotice();
                     }}
                 }});
@@ -144,23 +120,6 @@ def home():
                         triggerFraudNotice();
                         return;
                     }}
-                    const clicked = localStorage.getItem('ga_clicked_link');
-                    const passed = localStorage.getItem('ga_passed_verify');
-                    
-                    if (clicked === 'true' && passed === 'true') {{
-                        const btn = document.getElementById('getKeyBtn');
-                        const note = document.getElementById('noteText');
-                        if (btn) {{
-                            btn.removeAttribute('disabled');
-                            btn.classList.add('active');
-                            btn.innerText = "✨ BƯỚC 2: RÚT KEY NGAY TỪ KHO";
-                        }}
-                        if (note) {{
-                            note.style.color = "#4ade80";
-                            note.innerText = "✅ Đã vượt link thành công! Bấm nhận key ngay.";
-                        }}
-                    }}
-                    loadUserHistory();
                 }});
 
                 function triggerFraudNotice() {{
@@ -169,72 +128,12 @@ def home():
                     const note = document.getElementById('noteText');
                     
                     if (container) {{
-                        container.innerHTML = '<div style="background: #7f1d1d; color: #fca5a5; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 13px; margin-top: 15px; line-height: 1.5;">🚨 CẢNH BÁO: BẠN ĐÃ GIAN LẬN (BẤM QUAY LẠI QUÁ SỚM)! HỆ THỐNG ĐÃ KHÓA VĨNH VIỄN.</div>';
+                        container.innerHTML = '<div style="background: #7f1d1d; color: #fca5a5; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 13px; margin-top: 15px; line-height: 1.5;">🚨 CẢNH BÁO: BẠN ĐÃ GIAN LẬN (BẤM QUAY LẠI TRANG CHỦ SỚM)! HỆ THỐNG ĐÃ KHÓA VĨNH VIỄN[span_11](start_span)[span_11](end_span)[span_12](start_span)[span_12](end_span).</div>';
                     }}
                     if (note) {{
                         note.style.color = "#ef4444";
-                        note.innerText = "🚫 Vui lòng tải lại trang và thực hiện đúng quy trình vượt link!";
+                        note.innerText = "🚫 Vui lòng tải lại trang (F5) nếu muốn làm lại từ đầu!";
                     }}
-                }}
-
-                function getKeyFromStock() {{
-                    if (localStorage.getItem('ga_perm_hidden') === 'true') {{
-                        alert("Hệ thống đã bị khóa vì gian lận!");
-                        return;
-                    }}
-
-                    const passed = localStorage.getItem('ga_passed_verify');
-                    if (passed !== 'true') {{
-                        alert("Bạn chưa vượt link!");
-                        return;
-                    }}
-
-                    const keyBox = document.getElementById('keyResult');
-                    keyBox.innerText = "Đang rút key từ kho...";
-
-                    fetch('/api/get-key')
-                        .then(res => res.json())
-                        .then(data => {{
-                            if(data.success) {{
-                                const fullKeyInfo = data.key + " (Hạn: " + (data.days == 365 ? "Vĩnh viễn" : data.days + " ngày") + ")";
-                                keyBox.innerText = fullKeyInfo;
-                                saveToUserHistory(fullKeyInfo);
-                                alert("Rút key thành công!");
-                                localStorage.removeItem('ga_clicked_link');
-                                localStorage.removeItem('ga_passed_verify');
-                                localStorage.removeItem('ga_perm_hidden');
-                                location.reload();
-                            }} else {{
-                                keyBox.innerText = "❌ Lỗi: " + data.message;
-                            }}
-                        }})
-                        .catch(err => {{
-                            keyBox.innerText = "❌ Lỗi kết nối máy chủ.";
-                        }});
-                }}
-
-                function saveToUserHistory(keyStr) {{
-                    let history = JSON.parse(localStorage.getItem('ga_user_key_history') || '[]');
-                    history.unshift(keyStr);
-                    if (history.length > 5) history.pop();
-                    localStorage.setItem('ga_user_key_history', JSON.stringify(history));
-                    loadUserHistory();
-                }}
-
-                function loadUserHistory() {{
-                    const historyBox = document.getElementById('historyList');
-                    let history = JSON.parse(localStorage.getItem('ga_user_key_history') || '[]');
-                    
-                    if (history.length === 0) {{
-                        historyBox.innerHTML = '<span style="color: #64748b;">Chưa có lịch sử rút key nào.</span>';
-                        return;
-                    }}
-
-                    let html = '';
-                    history.forEach((itemText, index) => {{
-                        html += '<div style="padding: 4px 0; border-bottom: 1px solid #1e293b; color: #4ade80; font-family: monospace;">🔑 ' + (index + 1) + '. ' + itemText + '</div>';
-                    }});
-                    historyBox.innerHTML = html;
                 }}
             </script>
         </body>
@@ -244,40 +143,41 @@ def home():
     except Exception as e:
         return f"Lỗi giao diện: {str(e)}", 500
 
-# --- 2. API RÚT KEY ---
-@app.route('/api/get-key')
-def api_get_key():
+# --- 2. API KIỂM TRA KEY ---
+@app.route('/api/check-key')
+def api_check_key():
     try:
+        key_input = request.args.get('key')
+        if not key_input:
+            return jsonify({"success": False, "message": "Thiếu thông tin Key!"})
+        
         db = load_db()
-        stock = db.get("stock", [])
-        if not stock:
-            return jsonify({"success": False, "message": "Kho đã hết sạch key! Vui lòng đợi Admin nạp thêm."})
-        
-        item = stock.pop(0)
-        assigned_key = item.get("key", "UNKNOWN")
-        duration_days = int(item.get("days", 1))
-        
-        expire_time = time.time() + (duration_days * 86400)
-        if "active" not in db: db["active"] = {}
-        db["active"][assigned_key] = {
-            "expires_at": expire_time,
-            "days": duration_days,
-            "claimed_at": time.time()
-        }
-        
-        save_db(db)
-        return jsonify({"success": True, "key": assigned_key, "days": duration_days})
+        active_dict = db.get("active", {})
+        if key_input in active_dict:
+            key_data = active_dict[key_input]
+            
+            # Kiểm tra xem có bị Admin khóa thủ công không
+            if key_data.get("banned", False):
+                return jsonify({"success": False, "status": "banned", "message": "Key này đã bị Admin khóa vĩnh viễn do gian lận!"})
+                
+            if time.time() < key_data.get("expires_at", 0):
+                remaining_hours = round((key_data["expires_at"] - time.time()) / 3600, 1)
+                return jsonify({"success": True, "status": "valid", "message": f"Key hợp lệ! Còn hạn {remaining_hours} giờ."})
+            else:
+                return jsonify({"success": False, "status": "expired", "message": "Key đã hết hạn!"})
+        else:
+            return jsonify({"success": False, "status": "invalid", "message": "Key không tồn tại hoặc chưa được rút từ kho!"})
     except Exception as e:
         return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"})
 
-# --- 3. TRANG ADMIN QUẢN LÝ ---
+# --- 3. TRANG ADMIN QUẢN LÝ (CÓ TÍNH NĂNG KHÓA / MỞ KHÓA) ---
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_panel():
     try:
         db = load_db()
         message = ""
         
-        if request.method == 'POST' and 'password' in request.form and 'keys_input' not in request.form and 'new_link' not in request.form and 'delete_key' not in request.form:
+        if request.method == 'POST' and 'password' in request.form and 'keys_input' not in request.form and 'new_link' not in request.form and 'delete_key' not in request.form and 'toggle_ban' not in request.form:
             if request.form.get('password') == ADMIN_PASSWORD:
                 session['admin_logged'] = True
                 return redirect('/admin')
@@ -336,6 +236,15 @@ def admin_panel():
                 save_db(db)
                 message = f"✅ Đã nạp thành công {len(new_keys)} key vào kho!"
 
+            if 'toggle_ban' in request.form:
+                target_key = request.form.get('toggle_ban')
+                if "active" in db and target_key in db["active"]:
+                    current_status = db["active"][target_key].get("banned", False)
+                    db["active"][target_key]["banned"] = not current_status
+                    save_db(db)
+                    status_str = "khóa" if not current_status else "mở khóa"
+                    message = f"✅ Đã {status_str} thành công key '{target_key}'!"
+
             if 'delete_key' in request.form:
                 del_key = request.form.get('delete_key')
                 if "active" in db and del_key in db["active"]:
@@ -352,13 +261,26 @@ def admin_panel():
         for k, info in list(active_dict.items()):
             try:
                 time_left = round((info.get("expires_at", 0) - time.time()) / 3600, 1)
-                status_text = f"Còn hạn ({time_left}h)" if time_left > 0 else "Đã hết hạn"
-                status_color = "#4ade80" if time_left > 0 else "#ef4444"
+                is_banned = info.get("banned", False)
+                
+                if is_banned:
+                    status_text = "🚫 ĐÃ BỊ ADMIN KHÓA"
+                    status_color = "#ef4444"
+                    ban_btn_text = "Mở Khóa"
+                    ban_btn_color = "#22c55e"
+                else:
+                    status_text = f"Còn hạn ({time_left}h)" if time_left > 0 else "Đã hết hạn"
+                    status_color = "#4ade80" if time_left > 0 else "#ef4444"
+                    ban_btn_text = "Khóa"
+                    ban_btn_color = "#eab308"
+                    
                 d_val = info.get('days', 1)
             except:
-                time_left = 0
+                is_banned = False
                 status_text = "Lỗi dữ liệu"
                 status_color = "#ef4444"
+                ban_btn_text = "Khóa"
+                ban_btn_color = "#eab308"
                 d_val = 1
             
             history_html += f"""
@@ -367,15 +289,21 @@ def admin_panel():
                     <span style="color: #4ade80; font-family: monospace; font-weight: bold;">{k}</span><br>
                     <span style="color: {status_color}; font-size: 11px;">⏱️ Hạn: {d_val} ngày | Trạng thái: {status_text}</span>
                 </div>
-                <form method="POST" style="margin: 0;">
-                    <input type="hidden" name="delete_key" value="{k}">
-                    <button type="submit" style="background: #ef4444; padding: 5px 10px; font-size: 11px; margin: 0; width: auto;">Xóa</button>
-                </form>
+                <div style="display: flex; gap: 5px;">
+                    <form method="POST" style="margin: 0;">
+                        <input type="hidden" name="toggle_ban" value="{k}">
+                        <button type="submit" style="background: {ban_btn_color}; color: #0f172a; padding: 5px 8px; font-size: 11px; margin: 0; width: auto; font-weight: bold; cursor: pointer;">{ban_btn_text}</button>
+                    </form>
+                    <form method="POST" style="margin: 0;">
+                        <input type="hidden" name="delete_key" value="{k}">
+                        <button type="submit" style="background: #ef4444; color: white; padding: 5px 8px; font-size: 11px; margin: 0; width: auto; font-weight: bold; cursor: pointer;">Xóa</button>
+                    </form>
+                </div>
             </div>
             """
         
         if not history_html:
-            history_html = '<div style="color: #64748b; font-size: 12px; text-align: center; margin-top: 10px;">Chưa có key nào được rút từ kho.</div>'
+            history_html = '<div style="color: #64748b; font-size: 12px; text-align: center; margin-top: 10px;">Chưa có key nào trong hệ thống.</div>'
 
         return render_template_string(f"""
         <!DOCTYPE html>
@@ -402,15 +330,15 @@ def admin_panel():
         </head>
         <body>
             <div class="card">
-                <h2>⚙️ Cài Đặt Hệ Thống & Lịch Sử</h2>
+                <h2>⚙️ Cài Đặt Hệ Thống & Quản Lý Khách</h2>
                 <div class="stat-box">
                     <div class="stat">📦 Kho: {stock_count} Key</div>
-                    <div class="stat">🔑 Đã cấp: {active_count} Key</div>
+                    <div class="stat">🔑 Hoạt động: {active_count} Key</div>
                 </div>
                 
                 <form method="POST">
-                    <label style="font-size: 12px; color: #38bdf8; font-weight: bold;">🔗 Link Vượt Hiện Tại:</label>
-                    <input type="text" name="new_link" value="{current_link}" placeholder="Dán link vượt vào đây...">
+                    <label style="font-size: 12px; color: #38bdf8; font-weight: bold;">🔗 Link Vượt (Pastefy / Trạm Trung Gian):</label>
+                    <input type="text" name="new_link" value="{current_link}" placeholder="Dán link vào đây...">
                     <button type="submit" class="btn-link-update">💾 Lưu Link Vượt</button>
                 </form>
 
@@ -430,7 +358,7 @@ def admin_panel():
                 </form>
 
                 <div class="section">
-                    <label style="font-size: 12px; color: #38bdf8; font-weight: bold;">📜 Lịch Sử Key Đang Hoạt Động ({active_count}):</label>
+                    <label style="font-size: 12px; color: #38bdf8; font-weight: bold;">📜 Quản Lý Key Đang Hoạt Động ({active_count}):</label>
                     <div style="max-height: 180px; overflow-y: auto; margin-top: 8px;">
                         {history_html}
                     </div>
@@ -443,7 +371,7 @@ def admin_panel():
                 </form>
                 
                 <div style="text-align: center; margin-top: 15px;">
-                    <a href="/" style="color: #94a3b8; font-size: 12px; text-decoration: none;">← Về trang chủ lấy key</a>
+                    <a href="/" style="color: #94a3b8; font-size: 12px; text-decoration: none;">← Về trang chủ</a>
                 </div>
             </div>
         </body>
@@ -456,28 +384,6 @@ def admin_panel():
 def admin_logout():
     session.pop('admin_logged', None)
     return redirect('/admin')
-
-# --- 4. API KIỂM TRA KEY ---
-@app.route('/api/check-key')
-def api_check_key():
-    try:
-        key_input = request.args.get('key')
-        if not key_input:
-            return jsonify({"success": False, "message": "Thiếu thông tin Key!"})
-        
-        db = load_db()
-        active_dict = db.get("active", {})
-        if key_input in active_dict:
-            key_data = active_dict[key_input]
-            if time.time() < key_data.get("expires_at", 0):
-                remaining_hours = round((key_data["expires_at"] - time.time()) / 3600, 1)
-                return jsonify({"success": True, "status": "valid", "message": f"Key hợp lệ! Còn hạn {remaining_hours} giờ."})
-            else:
-                return jsonify({"success": False, "status": "expired", "message": "Key đã hết hạn!"})
-        else:
-            return jsonify({"success": False, "status": "invalid", "message": "Key không tồn tại hoặc chưa được rút từ kho!"})
-    except Exception as e:
-        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"})
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
