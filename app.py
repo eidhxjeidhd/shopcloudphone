@@ -51,7 +51,7 @@ def home():
         if not current_link:
             btn_html = '<div style="background: #334155; color: #ef4444; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: 15px; font-size: 13px;">⚠️ Admin chưa thiết lập Link vượt key!</div>'
         else:
-            btn_html = f'<a href="{current_link}" target="_blank" class="btn-link" onclick="markTargetClicked()">🔗 BƯỚC 1: MỞ TRANG VƯỢT LINK</a>'
+            btn_html = f'<a href="{current_link}" target="_blank" id="linkBtn" class="btn-link" onclick="markTargetClicked()">🔗 BƯỚC 1: MỞ TRANG VƯỢT LINK</a>'
 
         html_template = f"""
         <!DOCTYPE html>
@@ -69,7 +69,6 @@ def home():
                 button {{ background: #475569; color: #94a3b8; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: not-allowed; margin-top: 15px; transition: 0.2s; }}
                 button.active {{ background: #22c55e; color: white; cursor: pointer; }}
                 button.active:hover {{ background: #16a34a; }}
-                button.locked {{ background: #7f1d1d !important; color: #fca5a5 !important; cursor: not-allowed !important; }}
                 
                 .stock-badge {{ background: #334155; color: #38bdf8; padding: 6px 12px; border-radius: 20px; font-size: 12px; display: inline-block; margin-bottom: 15px; font-weight: bold; }}
                 .key-box {{ margin-top: 15px; font-size: 14px; color: #4ade80; background: #0b0f19; padding: 12px; border-radius: 8px; border: 1px solid #334155; word-break: break-all; user-select: all; }}
@@ -80,15 +79,17 @@ def home():
             </style>
         </head>
         <body>
-            <div class="card">
+            <div class="card" id="mainCard">
                 <h2>🔑 Kho Key Tự Động</h2>
                 <div class="stock-badge">📦 Số key sẵn sàng trong kho: {stock_count} Key</div>
                 <p style="font-size: 12px; color: #94a3b8;">Bắt buộc phải qua trang vượt link mới được mở khóa lấy key.</p>
                 
-                {btn_html}
-                
-                <button id="getKeyBtn" onclick="getKeyFromStock()" disabled>🔒 BƯỚC 2: NHẬN KEY TỪ KHO (CHƯA VƯỢT LINK)</button>
-                <div class="note" id="noteText">⚠️ Hãy bấm nút vượt link ở trên trước! Nếu không vượt, nút này sẽ khóa vĩnh viễn.</div>
+                <div id="actionContainer">
+                    {btn_html}
+                    <button id="getKeyBtn" onclick="getKeyFromStock()" disabled>🔒 BƯỚC 2: NHẬN KEY TỪ KHO (CHƯA VƯỢT LINK)</button>
+                </div>
+
+                <div class="note" id="noteText">⚠️ Hãy bấm nút vượt link ở trên trước! Nếu bấm quay lại sớm, hệ thống sẽ báo gian lận.</div>
                 
                 <div style="text-align: left; margin-top: 20px; font-size: 12px; color: #94a3b8;">Key của bạn vừa rút:</div>
                 <div class="key-box" id="keyResult">Chưa có key được rút.</div>
@@ -102,8 +103,6 @@ def home():
             </div>
 
             <script>
-                let isLockedPermanent = false;
-
                 function markTargetClicked() {{
                     localStorage.setItem('ga_clicked_link', 'true');
                     localStorage.removeItem('ga_passed_verify');
@@ -123,22 +122,26 @@ def home():
                     const note = document.getElementById('noteText');
 
                     if (clicked === 'true' && passed === 'true') {{
-                        if (!isLockedPermanent && localStorage.getItem('ga_perm_locked') !== 'true') {{
-                            btn.removeAttribute('disabled');
-                            btn.classList.add('active');
-                            btn.classList.remove('locked');
-                            btn.innerText = "✨ BƯỚC 2: RÚT KEY NGAY TỪ KHO";
-                            note.style.color = "#4ade80";
-                            note.innerText = "✅ Đã vượt link thành công! Bấm nhận key ngay.";
+                        if (localStorage.getItem('ga_perm_hidden') !== 'true') {{
+                            if (btn) {{
+                                btn.removeAttribute('disabled');
+                                btn.classList.add('active');
+                                btn.innerText = "✨ BƯỚC 2: RÚT KEY NGAY TỪ KHO";
+                            }}
+                            if (note) {{
+                                note.style.color = "#4ade80";
+                                note.innerText = "✅ Đã vượt link thành công! Bấm nhận key ngay.";
+                            }}
                         }}
                     }} else if (clicked === 'true' && passed !== 'true') {{
-                        lockPermanently("🚫 Phát hiện gian lận hoặc chưa hoàn thành vượt link! Khóa vĩnh viễn.");
+                        // Bấm quay lại sớm -> Báo gian lận và ẩn sạch nút!
+                        triggerFraudNotice();
                     }}
                 }});
 
                 window.addEventListener('DOMContentLoaded', function() {{
-                    if (localStorage.getItem('ga_perm_locked') === 'true') {{
-                        lockPermanently("🚫 Hệ thống đã bị khóa vĩnh viễn do thao tác sai!");
+                    if (localStorage.getItem('ga_perm_hidden') === 'true') {{
+                        triggerFraudNotice();
                         return;
                     }}
                     const clicked = localStorage.getItem('ga_clicked_link');
@@ -147,42 +150,42 @@ def home():
                     if (clicked === 'true' && passed === 'true') {{
                         const btn = document.getElementById('getKeyBtn');
                         const note = document.getElementById('noteText');
-                        btn.removeAttribute('disabled');
-                        btn.classList.add('active');
-                        btn.innerText = "✨ BƯỚC 2: RÚT KEY NGAY TỪ KHO";
-                        note.style.color = "#4ade80";
-                        note.innerText = "✅ Đã vượt link thành công! Bấm nhận key ngay.";
+                        if (btn) {{
+                            btn.removeAttribute('disabled');
+                            btn.classList.add('active');
+                            btn.innerText = "✨ BƯỚC 2: RÚT KEY NGAY TỪ KHO";
+                        }}
+                        if (note) {{
+                            note.style.color = "#4ade80";
+                            note.innerText = "✅ Đã vượt link thành công! Bấm nhận key ngay.";
+                        }}
                     }}
                     loadUserHistory();
                 }});
 
-                function lockPermanently(reason) {{
-                    isLockedPermanent = true;
-                    localStorage.setItem('ga_perm_locked', 'true');
-                    const btn = document.getElementById('getKeyBtn');
+                function triggerFraudNotice() {{
+                    localStorage.setItem('ga_perm_hidden', 'true');
+                    const container = document.getElementById('actionContainer');
                     const note = document.getElementById('noteText');
                     
-                    if (btn) {{
-                        btn.setAttribute('disabled', 'true');
-                        btn.classList.remove('active');
-                        btn.classList.add('locked');
-                        btn.innerText = "❌ HỆ THỐNG ĐÃ KHÓA VĨNH VIỄN";
+                    if (container) {{
+                        container.innerHTML = '<div style="background: #7f1d1d; color: #fca5a5; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 13px; margin-top: 15px; line-height: 1.5;">🚨 CẢNH BÁO: BẠN ĐÃ GIAN LẬN (BẤM QUAY LẠI QUÁ SỚM)! HỆ THỐNG ĐÃ KHÓA VĨNH VIỄN.</div>';
                     }}
                     if (note) {{
                         note.style.color = "#ef4444";
-                        note.innerText = reason;
+                        note.innerText = "🚫 Vui lòng tải lại trang và thực hiện đúng quy trình vượt link!";
                     }}
                 }}
 
                 function getKeyFromStock() {{
-                    if (isLockedPermanent || localStorage.getItem('ga_perm_locked') === 'true') {{
-                        alert("Hệ thống đã bị khóa do không vượt link hợp lệ!");
+                    if (localStorage.getItem('ga_perm_hidden') === 'true') {{
+                        alert("Hệ thống đã bị khóa vì gian lận!");
                         return;
                     }}
 
                     const passed = localStorage.getItem('ga_passed_verify');
                     if (passed !== 'true') {{
-                        alert("Bạn chưa vượt link! Nút bấm đang bị khóa.");
+                        alert("Bạn chưa vượt link!");
                         return;
                     }}
 
@@ -199,7 +202,7 @@ def home():
                                 alert("Rút key thành công!");
                                 localStorage.removeItem('ga_clicked_link');
                                 localStorage.removeItem('ga_passed_verify');
-                                localStorage.removeItem('ga_perm_locked');
+                                localStorage.removeItem('ga_perm_hidden');
                                 location.reload();
                             }} else {{
                                 keyBox.innerText = "❌ Lỗi: " + data.message;
