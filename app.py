@@ -4,25 +4,27 @@ import json
 import random
 import string
 from flask import Flask, render_template_string, jsonify, request, session, redirect
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 app.secret_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
 
 DB_FILE = "keys_stock_custom.json"
 ADMIN_PASSWORD = "admin_gagaming_123" # Mật khẩu admin
-BLOGSPOT_LINK = "https://tieb0iedbd8uhsb.blogspot.com/2026/10/gagaming-vuot-link-lay-key-box-sizing_01383317790.html?m=1"
 
 def load_db():
     if not os.path.exists(DB_FILE):
-        return {"stock": [], "active": {}}
+        return {"stock": [], "active": {}, "current_link": ""}
     try:
         with open(DB_FILE, "r") as f:
             data = json.load(f)
             if "stock" not in data: data["stock"] = []
             if "active" not in data: data["active"] = {}
+            if "current_link" not in data: data["current_link"] = ""
             return data
     except:
-        return {"stock": [], "active": {}}
+        return {"stock": [], "active": {}, "current_link": ""}
 
 def save_db(data):
     with open(DB_FILE, "w") as f:
@@ -33,7 +35,14 @@ def save_db(data):
 def home():
     db = load_db()
     stock_count = len(db["stock"])
+    current_link = db.get("current_link", "")
     
+    # Nếu chưa cấu hình link vượt
+    if not current_link:
+        btn_html = '<div style="background: #334155; color: #ef4444; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: 15px; font-size: 13px;">⚠️ Admin chưa thiết lập Link vượt key!</div>'
+    else:
+        btn_html = f'<a href="{current_link}" target="_blank" class="btn-link" onclick="markBypass()">🔗 1. VƯỢT LINK NHẬN KEY</a>'
+
     html_template = f"""
     <!DOCTYPE html>
     <html lang="vi">
@@ -62,12 +71,12 @@ def home():
         <div class="card">
             <h2>🔑 Kho Key Tự Động</h2>
             <div class="stock-badge">📦 Số key sẵn sàng trong kho: {stock_count} Key</div>
-            <p style="font-size: 12px; color: #94a3b8;">Vượt link Blogspot để rút ngẫu nhiên 1 key từ kho.</p>
+            <p style="font-size: 12px; color: #94a3b8;">Vượt link bên dưới để rút ngẫu nhiên 1 key từ kho.</p>
             
-            <a href="{BLOGSPOT_LINK}" target="_blank" class="btn-link" onclick="markBypass()">🔗 1. VƯỢT LINK TRÊN BLOGSPOT</a>
+            {btn_html}
             
             <button id="getKeyBtn" onclick="getKeyFromStock()" disabled>🔒 2. NHẬN KEY TỪ KHO (CHƯA VƯỢT LINK)</button>
-            <div class="note" id="noteText">⚠️ Hãy bấm nút số 1, sau đó quay lại đây để nhận Key!</div>
+            <div class="note" id="noteText">⚠️ Hãy bấm nút số 1, hoàn thành vượt link sau đó quay lại đây!</div>
             
             <div style="text-align: left; margin-top: 20px; font-size: 12px; color: #94a3b8;">Key của bạn:</div>
             <div class="key-box" id="keyResult">Chưa có key được rút.</div>
@@ -93,11 +102,13 @@ def home():
                     const btn = document.getElementById('getKeyBtn');
                     const note = document.getElementById('noteText');
                     
-                    btn.removeAttribute('disabled');
-                    btn.classList.add('active');
-                    btn.innerText = "✨ RÚT KEY NGAY TỪ KHO";
-                    note.style.color = "#4ade80";
-                    note.innerText = "✅ Đã vượt link thành công! Bấm nhận key ngay.";
+                    if (btn) {{
+                        btn.removeAttribute('disabled');
+                        btn.classList.add('active');
+                        btn.innerText = "✨ RÚT KEY NGAY TỪ KHO";
+                        note.style.color = "#4ade80";
+                        note.innerText = "✅ Đã vượt link thành công! Bấm nhận key ngay.";
+                    }}
                 }}
             }}
 
@@ -109,8 +120,8 @@ def home():
                     .then(res => res.json())
                     .then(data => {{
                         if(data.success) {{
-                            keyBox.innerText = data.key + " (Hạn: " + data.days + " ngày)";
-                            alert("Rút key thành công! Thời hạn: " + data.days + " ngày.");
+                            keyBox.innerText = data.key + " (Hạn: " + (data.days == 365 ? "Vĩnh viễn" : data.days + " ngày") + ")";
+                            alert("Rút key thành công! Thời hạn: " + (data.days == 365 ? "Vĩnh viễn" : data.days + " ngày."));
                             localStorage.removeItem('ga_bypassed');
                             location.reload();
                         }} else {{
@@ -134,7 +145,6 @@ def api_get_key():
     if not db["stock"]:
         return jsonify({"success": False, "message": "Kho đã hết sạch key! Vui lòng đợi Admin nạp thêm."})
     
-    # Rút key đầu tiên trong kho (mỗi item lưu key và số ngày)
     item = db["stock"].pop(0)
     assigned_key = item["key"]
     duration_days = item["days"]
@@ -155,7 +165,7 @@ def admin_panel():
     db = load_db()
     message = ""
     
-    if request.method == 'POST' and 'password' in request.form and 'keys_input' not in request.form:
+    if request.method == 'POST' and 'password' in request.form and 'keys_input' not in request.form and 'new_link' not in request.form:
         if request.form.get('password') == ADMIN_PASSWORD:
             session['admin_logged'] = True
             return redirect('/admin')
@@ -192,23 +202,29 @@ def admin_panel():
         </html>
         """)
 
-    # Nạp key kèm chọn số ngày
-    if request.method == 'POST' and 'keys_input' in request.form:
-        raw_keys = request.form.get('keys_input')
-        try:
-            days = int(request.form.get('days', 1))
-        except:
-            days = 1
-            
-        new_keys = [k.strip() for k in raw_keys.splitlines() if k.strip()]
-        
-        for k in new_keys:
-            db["stock"].append({"key": k, "days": days})
-            
-        save_db(db)
-        message = f"✅ Đã nạp thành công {len(new_keys)} key (Thời hạn: {days} ngày) vào kho!"
+    if request.method == 'POST':
+        if 'new_link' in request.form:
+            new_link = request.form.get('new_link').strip()
+            db["current_link"] = new_link
+            save_db(db)
+            message = "✅ Đã cập nhật Link vượt thành công!"
+                
+        if 'keys_input' in request.form and request.form.get('keys_input').strip():
+            raw_keys = request.form.get('keys_input')
+            try:
+                days = int(request.form.get('days', 1))
+            except:
+                days = 1
+                
+            new_keys = [k.strip() for k in raw_keys.splitlines() if k.strip()]
+            for k in new_keys:
+                db["stock"].append({"key": k, "days": days})
+                
+            save_db(db)
+            message = f"✅ Đã nạp thành công {len(new_keys)} key vào kho!"
 
     stock_count = len(db["stock"])
+    current_link = db.get("current_link", "")
     
     return render_template_string(f"""
     <!DOCTYPE html>
@@ -219,34 +235,48 @@ def admin_panel():
         <style>
             body {{ background: #0f172a; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }}
             .card {{ background: #1e293b; padding: 25px; border-radius: 16px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; }}
-            textarea {{ width: 100%; height: 120px; background: #0f172a; color: #4ade80; border: 1px solid #334155; border-radius: 8px; padding: 10px; box-sizing: border-box; font-family: monospace; margin-top: 10px; }}
-            input, select {{ width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; margin-top: 10px; }}
+            textarea, input, select {{ width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; margin-top: 8px; }}
+            textarea {{ height: 100px; font-family: monospace; color: #4ade80; }}
             button {{ background: #22c55e; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px; }}
             button:hover {{ background: #16a34a; }}
+            .btn-link-update {{ background: #3b82f6; }}
+            .btn-link-update:hover {{ background: #2563eb; }}
             .logout {{ background: #ef4444; margin-top: 10px; }}
             .logout:hover {{ background: #dc2626; }}
-            .success {{ color: #4ade80; font-size: 13px; margin-top: 10px; text-align: center; }}
+            .success {{ color: #4ade80; font-size: 13px; margin-top: 10px; text-align: center; font-weight: bold; }}
             .stat {{ background: #0b0f19; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center; font-size: 14px; color: #38bdf8; font-weight: bold; }}
+            .section {{ border-top: 1px solid #334155; margin-top: 20px; padding-top: 15px; }}
         </style>
     </head>
     <body>
         <div class="card">
-            <h2>⚙️ Tùy Chỉnh Kho Key</h2>
+            <h2>⚙️ Cài Đặt Hệ Thống & Kho Key</h2>
             <div class="stat">📦 Tổng số key trong kho: {stock_count} Key</div>
             
+            <!-- Phần 1: Đổi Link Vượt -->
             <form method="POST">
-                <label style="font-size: 12px; color: #94a3b8;">Chọn số ngày hiệu lực cho lô key này:</label>
+                <label style="font-size: 12px; color: #38bdf8; font-weight: bold;">🔗 Nhập Link Vượt (Dán link bất kỳ của ông vào đây):</label>
+                <input type="text" name="new_link" value="{current_link}" placeholder="Ví dụ: Link Blogspot, Link4M...">
+                <button type="submit" class="btn-link-update">💾 Lưu Link Vượt</button>
+            </form>
+
+            <!-- Phần 2: Nạp Key -->
+            <form method="POST" class="section">
+                <label style="font-size: 12px; color: #38bdf8; font-weight: bold;">📥 Nạp Lô Key Mới Vào Kho:</label>
+                
+                <label style="font-size: 11px; color: #94a3b8; display: block; margin-top: 8px;">Thời hạn của lô key này:</label>
                 <select name="days">
                     <option value="1">1 Ngày (24 Giờ)</option>
                     <option value="3">3 Ngày</option>
                     <option value="7">7 Ngày (1 Tuần)</option>
                     <option value="30">30 Ngày (1 Tháng)</option>
-                    <option value="365">Vĩnh viễn (365 Ngày)</option>
+                    <option value="365">Vĩnh viễn</option>
                 </select>
 
-                <label style="font-size: 12px; color: #94a3b8; display: block; margin-top: 10px;">Danh sách Key (mỗi key một dòng):</label>
+                <label style="font-size: 11px; color: #94a3b8; display: block; margin-top: 8px;">Danh sách Key (mỗi key một dòng):</label>
                 <textarea name="keys_input" placeholder="GA-ABCD-1234&#10;GA-EFGH-5678"></textarea>
-                <button type="submit">📥 Nạp Key Vào Kho</button>
+                
+                <button type="submit">➕ Thêm Key Vào Kho</button>
             </form>
             
             <div class="success">{message}</div>
@@ -254,13 +284,14 @@ def admin_panel():
             <form action="/admin/logout" method="POST">
                 <button type="submit" class="logout">Đăng Xuất</button>
             </form>
+            
             <div style="text-align: center; margin-top: 15px;">
                 <a href="/" style="color: #94a3b8; font-size: 12px; text-decoration: none;">← Về trang chủ lấy key</a>
             </div>
         </div>
     </body>
     </html>
-    """, stock_count=stock_count, message=message)
+    """, stock_count=stock_count, current_link=current_link, message=message)
 
 @app.route('/admin/logout', methods=['POST'])
 def admin_logout():
