@@ -8,8 +8,8 @@ from flask import Flask, render_template_string, jsonify, request
 app = Flask(__name__)
 
 DB_FILE = "keys.json"
+BLOGSPOT_LINK = "https://tieb0iedbd8uhsb.blogspot.com/2026/10/gagaming-vuot-link-lay-key-box-sizing_01383317790.html?m=1"
 
-# Hàm đọc/ghi database JSON đơn giản cho Render
 def load_db():
     if not os.path.exists(DB_FILE):
         return {}
@@ -24,58 +24,61 @@ def save_db(data):
         json.dump(data, f, indent=4)
 
 def generate_key():
-    # Tạo mã key ngẫu nhiên dạng GA-xxxx-xxxx
     part1 = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
     part2 = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
     return f"GA-{part1}-{part2}"
 
 @app.route('/')
 def index():
-    html_template = """
+    html_template = f"""
     <!DOCTYPE html>
     <html lang="vi">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Hệ Thống Lấy Key 24H</title>
+        <title>Hệ Thống Lấy Key 24H - Gà Gaming</title>
         <style>
-            body { background: #0f172a; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-            .card { background: #1e293b; padding: 25px; border-radius: 16px; width: 100%; max-width: 440px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; text-align: center; }
-            button { background: #22c55e; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px; transition: 0.2s; }
-            button:hover { background: #16a34a; }
-            .key-box { margin-top: 15px; font-size: 14px; color: #4ade80; background: #0b0f19; padding: 12px; border-radius: 8px; border: 1px solid #334155; word-break: break-all; user-select: all; }
+            body {{ background: #0f172a; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }}
+            .card {{ background: #1e293b; padding: 25px; border-radius: 16px; width: 100%; max-width: 440px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; text-align: center; }}
+            button {{ background: #22c55e; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px; transition: 0.2s; }}
+            button:hover {{ background: #16a34a; }}
+            .btn-link {{ background: #3b82f6; text-decoration: none; display: block; padding: 12px; border-radius: 8px; font-weight: bold; color: white; margin-top: 10px; box-sizing: border-box; }}
+            .btn-link:hover {{ background: #2563eb; }}
+            .key-box {{ margin-top: 15px; font-size: 14px; color: #4ade80; background: #0b0f19; padding: 12px; border-radius: 8px; border: 1px solid #334155; word-break: break-all; user-select: all; }}
         </style>
     </head>
     <body>
         <div class="card">
             <h2>🔑 Hệ Thống Key 24H</h2>
-            <p style="font-size: 12px; color: #94a3b8;">Vượt link rút gọn để nhận key sử dụng trong 24 giờ</p>
+            <p style="font-size: 12px; color: #94a3b8;">Vượt link rút gọn trên Blogspot để lấy key sử dụng trong 24 giờ</p>
             
-            <button onclick="getNewKey()">Lấy Key Mới Ngay</button>
+            <a href="{BLOGSPOT_LINK}" target="_blank" class="btn-link">🔗 LẤY LINK VƯỢT KEY (BLOGSPOT)</a>
+            
+            <button onclick="getNewKey()">Tạo Key Mới (Sau khi đã vượt link)</button>
             
             <div style="text-align: left; margin-top: 20px; font-size: 12px; color: #94a3b8;">Key của bạn:</div>
             <div class="key-box" id="keyResult">Chưa có key được tạo.</div>
         </div>
 
         <script>
-            function getNewKey() {
+            function getNewKey() {{
                 const keyBox = document.getElementById('keyResult');
                 keyBox.innerText = "Đang khởi tạo key trên hệ thống...";
 
                 fetch('/api/generate-key')
                     .then(res => res.json())
-                    .then(data => {
-                        if(data.success) {
+                    .then(data => {{
+                        if(data.success) {{
                             keyBox.innerText = data.key;
                             alert("Đã tạo key thành công! Key có hiệu lực 24 giờ.");
-                        } else {
+                        }} else {{
                             keyBox.innerText = "❌ Lỗi: " + data.message;
-                        }
-                    })
-                    .catch(err => {
+                        }}
+                    }})
+                    .catch(err => {{
                         keyBox.innerText = "❌ Lỗi kết nối đến máy chủ.";
-                    });
-            }
+                    }});
+            }}
         </script>
     </body>
     </html>
@@ -88,8 +91,7 @@ def api_generate_key():
         db = load_db()
         new_k = generate_key()
         
-        # Thời hạn 24 giờ tính bằng giây (24 * 3600 = 86400 giây)
-        expire_time = time.time() + 86400 
+        expire_time = time.time() + 86400 # 24 giờ
         
         db[new_k] = {
             "expires_at": expire_time,
