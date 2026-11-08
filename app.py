@@ -12,7 +12,7 @@ def index():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Bacon Bypass Web Tool</title>
+        <title>Bacon Link Bypass</title>
         <style>
             body { background: #0f172a; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
             .card { background: #1e293b; padding: 25px; border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; }
@@ -26,7 +26,7 @@ def index():
     <body>
         <div class="card">
             <h2 style="text-align: center; margin-top: 0;">🔗 Bacon Link Bypass</h2>
-            <p style="font-size: 12px; color: #94a3b8; text-align: center;">Hệ thống tự động bóc tách link qua BaconBypass</p>
+            <p style="font-size: 12px; color: #94a3b8; text-align: center;">Hệ thống bóc tách link qua BaconBypass</p>
             
             <div style="text-align: left; margin-top: 10px;">
                 <label style="font-size: 12px; color: #94a3b8;">Nhập Link Rút Gọn Cần Bypass:</label>
@@ -45,7 +45,7 @@ def index():
                 if(!url) { alert('Vui lòng nhập link cần bypass!'); return; }
 
                 const resultBox = document.getElementById('resultBox');
-                resultBox.innerText = "Đang kết nối tới hệ thống BaconBypass để xử lý...";
+                resultBox.innerText = "Đang kết nối tới BaconBypass để bóc tách...";
 
                 fetch(`/api/bypass?url=${encodeURIComponent(url)}`)
                     .then(res => res.json())
@@ -57,7 +57,7 @@ def index():
                         }
                     })
                     .catch(err => {
-                        resultBox.innerText = "❌ Lỗi kết nối đến server.";
+                        resultBox.innerText = "❌ Lỗi kết nối đến máy chủ.";
                     });
             }
         </script>
@@ -73,30 +73,34 @@ def api_bypass():
         return jsonify({"success": False, "message": "Thiếu đường dẫn URL!"})
     
     try:
-        # Gọi trực tiếp tới API hoặc trang BaconBypass để xử lý bóc tách
-        # Tùy thuộc vào cấu trúc endpoint thực tế của baconbypass.xyz
+        # Đường dẫn API endpoint của baconbypass.xyz
         api_endpoint = f"https://baconbypass.xyz/api?url={target_url}"
         
         headers = {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json"
         }
         
-        response = requests.get(api_endpoint, headers=headers, timeout=15)
+        response = requests.get(api_endpoint, headers=headers, timeout=20)
         
         if response.status_code == 200:
-            data = response.json()
-            # Giả định cấu trúc trả về JSON có chứa link kết quả (ví dụ: data['result'] hoặc data['url'])
-            final_link = data.get("result") or data.get("url") or target_url
-            return jsonify({"success": True, "result": final_link})
+            try:
+                data = response.json()
+                # Lấy kết quả trả về từ các trường phổ biến của API
+                final_link = data.get("result") or data.get("url") or data.get("destination") or data.get("link")
+                
+                if final_link:
+                    return jsonify({"success": True, "result": final_link})
+                else:
+                    return jsonify({"success": True, "result": response.text})
+            except:
+                # Nếu phản hồi trả về dạng text thô không phải JSON
+                return jsonify({"success": True, "result": response.text.strip()})
         else:
-            # Fallback nếu endpoint yêu cầu dạng khác hoặc cURL trực tiếp
-            return jsonify({
-                "success": True, 
-                "result": f"https://example.com/resolved-target-from-{target_url}"
-            })
+            return jsonify({"success": False, "message": f"Lỗi từ server BaconBypass (Mã: {response.status_code})"})
             
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)})
+        return jsonify({"success": False, "message": f"Lỗi kết nối: {str(e)}"})
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
