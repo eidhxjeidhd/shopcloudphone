@@ -29,7 +29,11 @@ def generate_key():
     return f"GA-{part1}-{part2}"
 
 @app.route('/')
-def index():
+def home():
+    return "🚀 Gà Gaming Key System is Running!"
+
+@app.route('/key')
+def key_page():
     html_template = f"""
     <!DOCTYPE html>
     <html lang="vi">
@@ -56,7 +60,7 @@ def index():
             <h2>🔑 Hệ Thống Key 24H</h2>
             <p style="font-size: 12px; color: #94a3b8;">Vượt link Blogspot để mở khóa và nhận Key.</p>
             
-            <!-- Bước 1: Bấm vào đây sang Blogspot -->
+            <!-- Bước 1: Sang Blogspot -->
             <a href="{BLOGSPOT_LINK}" target="_blank" class="btn-link" onclick="markBypass()">🔗 1. VƯỢT LINK TRÊN BLOGSPOT</a>
             
             <!-- Bước 2: Nút nhận key -->
@@ -68,20 +72,16 @@ def index():
         </div>
 
         <script>
-            // Kiểm tra trạng thái ngay khi vừa load lại trang hoặc quay lại tab
-            window.addEventListener('focus', checkBypassStatus);
-            window.addEventListener('DOMContentLoaded', checkBypassStatus);
-
             function markBypass() {{
-                // Ghi nhận thời điểm bấm sang blogspot
                 localStorage.setItem('ga_bypass_time', Date.now());
-                
-                // Sau 3 giây cho phép bật nút (đủ thời gian để qua blogspot)
                 setTimeout(() => {{
                     localStorage.setItem('ga_bypassed', 'true');
                     checkBypassStatus();
                 }}, 3000);
             }}
+
+            window.addEventListener('focus', checkBypassStatus);
+            window.addEventListener('DOMContentLoaded', checkBypassStatus);
 
             function checkBypassStatus() {{
                 const isBypassed = localStorage.getItem('ga_bypassed');
@@ -107,7 +107,6 @@ def index():
                         if(data.success) {{
                             keyBox.innerText = data.key;
                             alert("Thành công! Key có hiệu lực 24 giờ.");
-                            // Reset lại trạng thái để lượt sau bắt buộc phải vượt link lại từ đầu
                             localStorage.removeItem('ga_bypassed');
                             location.reload();
                         }} else {{
@@ -116,7 +115,7 @@ def index():
                     }})
                     .catch(err => {{
                         keyBox.innerText = "❌ Lỗi kết nối máy chủ.";
-                    }});
+                    }};
             }}
         </script>
     </body>
