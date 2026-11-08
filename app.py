@@ -8,7 +8,7 @@ from flask import Flask, render_template_string, jsonify, request, session, redi
 app = Flask(__name__)
 app.secret_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
 
-# Tự động bật CORS thủ công cho mọi tên miền gọi vào mà không cần cài thư viện ngoài
+# Tự động bật CORS thủ công cho phép mọi nguồn gọi API vào
 @app.after_request
 def add_cors_headers(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
@@ -36,7 +36,7 @@ def save_db(data):
     with open(DB_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-# --- 1. GIAO DIỆN CHÍNH CHO NGƯỜI DÙNG ---
+# --- 1. GIAO DIỆN CHÍNH CHO NGƯỜI DÙNG (CÓ ĐẾM NGƯỢC 60 GIÂY) ---
 @app.route('/')
 def home():
     db = load_db()
@@ -76,12 +76,12 @@ def home():
         <div class="card">
             <h2>🔑 Kho Key Tự Động</h2>
             <div class="stock-badge">📦 Số key sẵn sàng trong kho: {stock_count} Key</div>
-            <p style="font-size: 12px; color: #94a3b8;">Vượt link bên dưới để rút ngẫu nhiên 1 key từ kho.</p>
+            <p style="font-size: 12px; color: #94a3b8;">Vượt link và chờ đủ 60 giây để rút key từ kho.</p>
             
             {btn_html}
             
-            <button id="getKeyBtn" onclick="getKeyFromStock()" disabled>🔒 2. NHẬN KEY TỪ KHO (CHƯA VƯỢT LINK)</button>
-            <div class="note" id="noteText">⚠️ Hãy bấm nút số 1, hoàn thành vượt link sau đó quay lại đây!</div>
+            <button id="getKeyBtn" onclick="getKeyFromStock()" disabled>🔒 HÃY VƯỢT LINK VÀ CHỜ 60 GIÂY</button>
+            <div class="note" id="noteText">⚠️ Bấm nút phía trên để bắt đầu đếm ngược thời gian!</div>
             
             <div style="text-align: left; margin-top: 20px; font-size: 12px; color: #94a3b8;">Key của bạn:</div>
             <div class="key-box" id="keyResult">Chưa có key được rút.</div>
@@ -90,34 +90,64 @@ def home():
         </div>
 
         <script>
+            let countdownInterval = null;
+
             function markBypass() {{
-                localStorage.setItem('ga_bypass_time', Date.now());
-                setTimeout(() => {{
-                    localStorage.setItem('ga_bypassed', 'true');
-                    checkBypassStatus();
-                }}, 3000);
+                const startTime = Date.now();
+                localStorage.setItem('ga_start_time', startTime);
+                localStorage.removeItem('ga_bypassed');
+                startCountdown();
             }}
 
-            window.addEventListener('focus', checkBypassStatus);
-            window.addEventListener('DOMContentLoaded', checkBypassStatus);
+            window.addEventListener('focus', function() {{
+                checkBypassStatus();
+            }});
 
-            function checkBypassStatus() {{
-                const isBypassed = localStorage.getItem('ga_bypassed');
-                if (isBypassed === 'true') {{
-                    const btn = document.getElementById('getKeyBtn');
-                    const note = document.getElementById('noteText');
-                    
-                    if (btn) {{
+            window.addEventListener('DOMContentLoaded', function() {{
+                const startTime = localStorage.getItem('ga_start_time');
+                if (startTime) {{
+                    startCountdown();
+                }}
+            }});
+
+            function startCountdown() {{
+                const btn = document.getElementById('getKeyBtn');
+                const note = document.getElementById('noteText');
+                
+                if (countdownInterval) clearInterval(countdownInterval);
+
+                countdownInterval = setInterval(() => {{
+                    const startTime = parseInt(localStorage.getItem('ga_start_time') || '0');
+                    if (!startTime) return;
+
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    const timeLeft = 60 - elapsed; // Đếm ngược 60 giây
+
+                    if (timeLeft > 0) {{
+                        btn.setAttribute('disabled', 'true');
+                        btn.classList.remove('active');
+                        btn.innerText = "⏳ VUI LÒNG CHỜ (" + timeLeft + "s)";
+                        note.style.color = "#ef4444";
+                        note.innerText = "⚠️ Đang đếm ngược thời gian vượt link...";
+                    }} else {{
+                        clearInterval(countdownInterval);
+                        localStorage.setItem('ga_bypassed', 'true');
                         btn.removeAttribute('disabled');
                         btn.classList.add('active');
                         btn.innerText = "✨ RÚT KEY NGAY TỪ KHO";
                         note.style.color = "#4ade80";
-                        note.innerText = "✅ Đã vượt link thành công! Bấm nhận key ngay.";
+                        note.innerText = "✅ Đã hoàn thành thời gian vượt link! Bấm nhận key ngay.";
                     }}
-                }}
+                }}, 1000);
             }}
 
             function getKeyFromStock() {{
+                const isBypassed = localStorage.getItem('ga_bypassed');
+                if (isBypassed !== 'true') {{
+                    alert("Bạn chưa hoàn thành thời gian chờ vượt link!");
+                    return;
+                }}
+
                 const keyBox = document.getElementById('keyResult');
                 keyBox.innerText = "Đang rút key từ kho...";
 
@@ -128,6 +158,7 @@ def home():
                             keyBox.innerText = data.key + " (Hạn: " + (data.days == 365 ? "Vĩnh viễn" : data.days + " ngày") + ")";
                             alert("Rút key thành công! Thời hạn: " + (data.days == 365 ? "Vĩnh viễn" : data.days + " ngày."));
                             localStorage.removeItem('ga_bypassed');
+                            localStorage.removeItem('ga_start_time');
                             location.reload();
                         }} else {{
                             keyBox.innerText = "❌ Lỗi: " + data.message;
@@ -143,7 +174,7 @@ def home():
     """
     return render_template_string(html_template)
 
-# --- 2. API RÚT KEY ---
+# --- 2. API RÚT KEY TỪ KHO ---
 @app.route('/api/get-key')
 def api_get_key():
     db = load_db()
@@ -301,6 +332,7 @@ def admin_logout():
     session.pop('admin_logged', None)
     return redirect('/admin')
 
+# --- 4. API KIỂM TRA KEY ---
 @app.route('/api/check-key')
 def api_check_key():
     key_input = request.args.get('key')
