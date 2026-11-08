@@ -1,8 +1,85 @@
-import os
-import requests
-from flask import Flask, render_template_string, jsonify, request
+import time
+import threading
+from flask import Flask, render_template_string, jsonify
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 
 app = Flask(__name__)
+
+# Biến toàn cục lưu trạng thái tool
+bot_status = "Đang tắt"
+driver = None
+bot_thread = None
+
+def run_zefoy_automation(video_url):
+    global bot_status, driver
+    try:
+        bot_status = "Đang khởi động trình duyệt..."
+        options = webdriver.ChromeOptions()
+        # Nếu chạy trên máy tính, bạn có thể comment dòng headless lại để thấy cửa sổ trình duyệt giải captcha
+        # options.add_argument("--headless") 
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        driver.get("https://zefoy.com/")
+        
+        bot_status = "⚠️ HÃY TỰ GIẢI CAPTCHA TRÊN TRÌNH DUYỆT ĐANG MỞ!"
+        
+        # Chờ người dùng tự vượt qua Captcha (kiểm tra khi nào vào được trang chính của Zefoy - có ô nhập link)
+        while True:
+            try:
+                # Zefoy thường có ô input chứa placeholder "Enter Video URL" hoặc class tương tự sau khi đăng nhập captcha
+                input_box = driver.find_element(By.XPATH, "//input[contains(@placeholder, 'Enter Video URL')]")
+                if input_box:
+                    break
+            except:
+                pass
+            time.sleep(2)
+            
+        bot_status = "Đã vượt Captcha! Đang tiến hành buff..."
+        time.sleep(2)
+        
+        # Nhập link video cần buff
+        input_box = driver.find_element(By.XPATH, "//input[contains(@placeholder, 'Enter Video URL')]")
+        input_box.clear()
+        input_box.send_keys(video_url)
+        time.sleep(1)
+        
+        # Click nút tìm kiếm video (Search)
+        search_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Search')]")
+        search_btn.click()
+        
+        bot_status = "Đã tìm thấy video, đang chờ nút gửi tim/view..."
+        time.sleep(3)
+        
+        # Vòng lặp tự động bấm buff (Hearts / Views) liên tục mỗi khi hết thời gian chờ (cooldown)
+        while True:
+            try:
+                # Tìm nút gửi tim (Send hearts) hoặc views tùy ý bạn chọn
+                send_hearts_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Send hearts')]")
+                if send_hearts_btn.is_enabled():
+                    send_hearts_btn.click()
+                    bot_status = "🎉 Đã buff thành công một lượt! Đang chờ cooldown..."
+                else:
+                    bot_status = "⏳ Đang trong thời gian chờ (Cooldown) của Zefoy..."
+            except Exception as e:
+                bot_status = f"Đang xử lý hoặc chờ lượt tiếp theo... ({str(e)[:30]})"
+            
+            time.sleep(10)
+            
+    except Exception as e:
+        bot_status = f"Lỗi: {str(e)}"
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except:
+                pass
 
 @app.route('/')
 def index():
@@ -12,207 +89,65 @@ def index():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TikTok Live - Dự Báo Thời Tiết GPS Chuẩn Xác</title>
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+        <title>Zefoy Auto Buff - TikTok</title>
         <style>
-            body { background-color: #0b0c10; color: white; font-family: 'Poppins', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-            .game-container { width: 100%; max-width: 440px; background: #151823; border: 2px solid #2ed573; border-radius: 24px; padding: 20px; box-sizing: border-box; text-align: center; box-shadow: 0 20px 40px rgba(46,213,115,0.2); position: relative; margin: 20px 0; }
-            .avatar-box { width: 75px; height: 75px; border-radius: 50%; border: 3px solid #2ed573; object-fit: cover; margin: 0 auto 10px auto; display: block; box-shadow: 0 0 15px rgba(46,213,115,0.4); }
-            .title { color: #2ed573; font-size: 17px; font-weight: 700; margin: 0 0 3px 0; text-transform: uppercase; }
-            .subtitle { color: #8f9bb3; font-size: 11px; margin: 0 0 12px 0; }
-            .search-box { display: flex; gap: 8px; margin-bottom: 10px; }
-            .search-input { flex: 1; background: #12131c; border: 1px solid #232738; padding: 10px 12px; border-radius: 10px; color: white; font-size: 13px; outline: none; }
-            .search-input:focus { border-color: #2ed573; }
-            .search-btn { background: #2ed573; border: none; color: white; padding: 0 12px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-            .search-btn:hover { background: #26af5f; }
-            .gps-btn { background: #ffa502; border: none; color: #12131c; padding: 8px 12px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; font-size: 12px; }
-            .gps-btn:hover { background: #ffb143; }
-            .voice-btn { background: #3b82f6; border: none; color: white; padding: 8px 12px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 12px; font-size: 12px; }
-            .voice-btn:hover { background: #2563eb; }
-            .win-label { font-size: 11px; color: #8f9bb3; font-weight: 600; letter-spacing: 1px; }
-            .win-number { font-size: 42px; font-weight: bold; color: #ffa502; margin: 2px 0; text-shadow: 0 0 20px rgba(255,165,2,0.4); }
-            .alert-box { background: rgba(46,213,115,0.1); border: 1px solid #2ed573; padding: 10px; border-radius: 14px; margin-top: 10px; text-align: left; }
-            .alert-title { color: #2ed573; font-weight: bold; font-size: 13px; margin-bottom: 4px; }
-            .msg-box { background: #12131c; border: 1px solid #232738; padding: 10px 12px; border-radius: 12px; margin-top: 10px; font-size: 12px; word-break: break-word; color: #d1d5db; line-height: 1.4; text-align: left; max-height: 130px; overflow-y: auto; }
+            body { background: #0f172a; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .card { background: #1e293b; padding: 30px; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; }
+            input { width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box; }
+            button { background: #22c55e; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+            button:hover { background: #16a34a; }
+            .status { margin-top: 20px; font-size: 14px; color: #38bdf8; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #334155; }
         </style>
     </head>
     <body>
-        <div class="game-container">
-            <img src="https://i.ibb.co/Z1Yck7SH/7475196962448704520-avatar-png.png" alt="Avatar" class="avatar-box">
-            <div class="title">🎙️ AI PHÁT THANH VIÊN THỜI TIẾT</div>
-            <div class="subtitle">Quét GPS chuẩn xác • Dự báo theo giờ • Giọng đọc AI</div>
-            
-            <button class="gps-btn" onclick="getGPSLocation()">📍 Quét lại GPS khu vực hiện tại</button>
-            <button class="voice-btn" onclick="speakWeather()">🔊 Nghe AI đọc bản tin thời tiết</button>
-
-            <div class="search-box">
-                <input type="text" id="cityInput" class="search-input" placeholder="Nhập tên khu vực..." value="Hà Nội">
-                <button class="search-btn" onclick="getWeather()">Xem</button>
-            </div>
-            
-            <div class="win-label" id="locationLabel">NHIỆT ĐỘ KHU VỰC</div>
-            <div class="win-number" id="tempDisplay">--°C</div>
-            <div class="alert-box" id="infoSection">
-                <div class="alert-title" id="descDisplay">Trạng thái: Sẵn sàng quét GPS...</div>
-                <div style="font-size: 11px; color: #8f9bb3;" id="feelsLikeDisplay">Cảm giác thực tế: --°C</div>
-            </div>
-            
-            <div class="msg-box" id="hourlyDisplay">
-                ⏳ Đang tải lịch trình dự báo theo giờ...
-            </div>
+        <div class="card">
+            <h2>🤖 Zefoy Auto Buff TikTok</h2>
+            <p style="font-size: 12px; color: #94a3b8;">Nhập link video TikTok của bạn bên dưới</p>
+            <input type="text" id="videoUrl" placeholder="https://www.tiktok.com/@user/video/...">
+            <button onclick="startBot()">Bắt đầu Chạy Tool</button>
+            <div class="status" id="statusBox">Trạng thái: Đang chờ lệnh...</div>
         </div>
 
         <script>
-            let lastSpokenText = "";
+            function startBot() {
+                const url = document.getElementById('videoUrl').value;
+                if(!url) { alert('Vui lòng nhập link video!'); return; }
+                
+                fetch('/start?url=' + encodeURIComponent(url))
+                    .then(res => res.json())
+                    .then(data => { alert(data.message); });
+            }
 
-            function fetchWeather(query) {
-                document.getElementById('descDisplay').innerText = "🔄 Đang lấy dữ liệu thời tiết...";
-                fetch(`/api/weather?q=${encodeURIComponent(query)}`)
+            setInterval(() => {
+                fetch('/status')
                     .then(res => res.json())
                     .then(data => {
-                        if(data.success) {
-                            document.getElementById('locationLabel').innerText = `TẠI ${data.city.toUpperCase()}`;
-                            document.getElementById('tempDisplay').innerText = `${data.temperature}°C`;
-                            document.getElementById('descDisplay').innerText = data.weather_status;
-                            document.getElementById('feelsLikeDisplay').innerText = `🌡️ Cảm giác như: ${data.feels_like}°C | 💧 Độ ẩm: ${data.humidity}%`;
-                            
-                            let hourlyHtml = "<b>⏰ Dự báo theo khung giờ:</b><br>";
-                            data.hourly.forEach(h => {
-                                hourlyHtml += `• ${h.time}: ${h.temp}°C - ${h.desc}<br>`;
-                            });
-                            document.getElementById('hourlyDisplay').innerHTML = hourlyHtml;
-
-                            lastSpokenText = `Xin chào các bạn! Dữ liệu thời tiết tại khu vực ${data.city} hiện tại là ${data.temperature} độ C, với trạng thái ${data.weather_status}. Cảm giác thực tế ngoài trời là ${data.feels_like} độ C, độ ẩm khoảng ${data.humidity} phần trăm. Chúc các bạn có một ngày làm việc và học tập hiệu quả!`;
-                        } else {
-                            alert("Không tìm thấy địa điểm!");
-                        }
-                    })
-                    .catch(err => console.log("Lỗi:", err));
-            }
-
-            function getWeather() {
-                const city = document.getElementById('cityInput').value.trim();
-                if(city) fetchWeather(city);
-            }
-
-            function getGPSLocation() {
-                if (navigator.geolocation) {
-                    document.getElementById('descDisplay').innerText = "🛰️ Đang quét tọa độ GPS thực tế...";
-                    navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            const lat = position.coords.latitude;
-                            const lon = position.coords.longitude;
-                            // Gửi chính xác tọa độ thiết bị lên để server lấy đúng thời tiết khu vực đó
-                            fetchWeather(`${lat},${lon}`);
-                        },
-                        (error) => {
-                            alert("Không thể quét vị trí GPS. Vui lòng nhập tên khu vực thủ công!");
-                            document.getElementById('descDisplay').innerText = "⚠️ Lỗi định vị GPS.";
-                        },
-                        { timeout: 7000 }
-                    );
-                } else {
-                    alert("Trình duyệt không hỗ trợ GPS.");
-                }
-            }
-
-            function speakWeather() {
-                if (!lastSpokenText) {
-                    alert("Đang tải dữ liệu, vui lòng đợi giây lát!");
-                    return;
-                }
-                if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel();
-                    let utterance = new SpeechSynthesisUtterance(lastSpokenText);
-                    utterance.lang = 'vi-VN';
-                    utterance.rate = 1.0;
-                    utterance.pitch = 1.0;
-                    window.speechSynthesis.speak(utterance);
-                } else {
-                    alert("Trình duyệt không hỗ trợ giọng đọc AI.");
-                }
-            }
-
-            // Mặc định ban đầu load Hà Nội để không bị trống màn hình
-            window.onload = () => { fetchWeather('Hà Nội'); };
+                        document.getElementById('statusBox').innerText = "Trạng thái: " + data.status;
+                    });
+            }, 2000);
         </script>
     </body>
     </html>
     """
     return render_template_string(html_template)
 
-@app.route('/api/weather')
-def api_weather():
-    query = request.args.get('q', 'Hà Nội')
+@app.route('/start')
+def start():
+    global bot_thread, bot_status
+    video_url = request.args.get('url')
     
-    display_name = query
-    # Nếu client truyền lên chuỗi tọa độ (có dấu phẩy và số), hiển thị tên khu vực thân thiện thay vì dãy số thô
-    if "," in query and any(char.isdigit() for char in query):
-        display_name = "Khu Vực Hiện Tại (GPS)"
+    if bot_thread and bot_thread.is_alive():
+        return jsonify({"message": "Tool đang chạy rồi!"})
+        
+    bot_thread = threading.Thread(target=run_zefoy_automation, args=(video_url,))
+    bot_thread.daemon = True
+    bot_thread.start()
+    
+    return jsonify({"message": "Đã khởi động tool! Hãy nhìn vào màn hình trình duyệt để giải Captcha."})
 
-    url = f"https://wttr.in/{query}?format=j1"
-    try:
-        headers = {'User-Agent': 'curl/7.68.0'}
-        response = requests.get(url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            current = data['current_condition'][0]
-            
-            weather_code = str(current.get('weatherCode', ''))
-            desc_en = current['weatherDesc'][0]['value'].lower()
-            
-            status_vn = "Trời Nắng Ráo, Quang Mây"
-            if "sun" in desc_en or "clear" in desc_en or weather_code in ['113']:
-                status_vn = "Trời Nắng Ráo, Quang Mây"
-            elif "thunder" in desc_en or "storm" in desc_en or weather_code in ['386', '389', '392', '395']:
-                status_vn = "Có Mưa Dông, Sấm Sét"
-            elif "heavy rain" in desc_en or weather_code in ['302', '305', '308', '359']:
-                status_vn = "Trời Đang Mưa Rất To"
-            elif "rain" in desc_en or "shower" in desc_en or weather_code in ['293', '296', '299', '305', '353', '356']:
-                status_vn = "Trời Đang Có Mưa Rào Nhỏ"
-            elif "cloud" in desc_en or "overcast" in desc_en or weather_code in ['116', '119', '122']:
-                status_vn = "Trời Nhiều Mây, Dịu Mát"
-            elif "fog" in desc_en or "mist" in desc_en or weather_code in ['143', '248', '260']:
-                status_vn = "Sương Mù Dày Đặc"
-
-            hourly_list = []
-            today_weather = data.get('weather', [])[0].get('hourly', [])
-            for item in today_weather:
-                time_str = item.get('time', '0').zfill(4)
-                formatted_time = f"{time_str[:2]}:00"
-                temp_c = item.get('tempC', '')
-                desc_text = item.get('weatherDesc', [{}])[0].get('value', '')
-                
-                desc_vn_hourly = "Trời nắng đẹp"
-                d_lower = desc_text.lower()
-                if "rain" in d_lower or "shower" in d_lower:
-                    desc_vn_hourly = "Có mưa rào"
-                elif "cloud" in d_lower:
-                    desc_vn_hourly = "Nhiều mây"
-                elif "sun" in d_lower or "clear" in d_lower:
-                    desc_vn_hourly = "Trời nắng"
-
-                hourly_list.append({
-                    "time": formatted_time,
-                    "temp": temp_c,
-                    "desc": desc_vn_hourly
-                })
-
-            return jsonify({
-                "success": True,
-                "city": display_name,
-                "temperature": current['temp_C'],
-                "feels_like": current['FeelsLikeC'],
-                "humidity": current['humidity'],
-                "weather_status": status_vn,
-                "wind_speed": current['windspeedKmph'],
-                "hourly": hourly_list[:6]
-            })
-        else:
-            return jsonify({"success": False, "error": "Lỗi dữ liệu"})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+@app.route('/status')
+def status():
+    return jsonify({"status": bot_status})
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=False)
